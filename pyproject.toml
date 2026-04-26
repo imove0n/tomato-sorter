@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tomato-sorter"
+version = "2.0.0"
+description = "AI-powered tomato sorting system for Raspberry Pi 5 — thesis v2.0"
+requires-python = ">=3.13"
+dependencies = [
+    # Web
+    "flask>=3.0",
+    "flask-socketio>=5.3",
+    "python-engineio>=4.9",
+    "python-socketio>=5.11",
+
+    # Config
+    "pyyaml>=6.0",
+
+    # Numerics (OpenCV comes from system via --system-site-packages)
+    "numpy>=1.26",
+
+    # GPIO — Pi 5 RP1 chip compatible
+    "gpiozero>=2.0",
+    "lgpio>=0.2",
+
+    # DHT22 — Pi 5 compatible (replaces broken Adafruit_DHT)
+    "adafruit-circuitpython-dht>=4.0",
+
+    # YOLO inference — NCNN C++ bindings, no PyTorch needed at runtime
+    # (ultralytics stays on PC for model conversion: yolo export model=best.pt format=ncnn)
+    "ncnn>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[project.scripts]
+tomato-sorter = "tomato_sorter.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

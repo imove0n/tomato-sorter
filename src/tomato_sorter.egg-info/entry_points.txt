@@ -1,0 +1,2 @@
+[console_scripts]
+tomato-sorter = tomato_sorter.main:cli
