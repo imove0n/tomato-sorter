@@ -200,13 +200,15 @@ What's worth carrying over:
 | **OS** | Debian 13 Trixie (kernel via `uname -a`) |
 | **Storage** | 32GB SD card (~15GB free after setup) |
 | **Camera** | **USB camera** at `/dev/video0` — use `cv2.CAP_V4L2` backend |
-| **DHT22 #1** | RIPE bin — GPIO TBD |
-| **DHT22 #2** | UNRIPE bin — GPIO TBD |
-| **Servo 1 (gate)** | Releases 1 tomato at a time onto conveyor — GPIO TBD |
-| **Servo 2 (sorter)** | 180° — left=ripe, center=unripe, right=rotten — GPIO TBD |
-| **IR sensor** | End of conveyor — detects tomato at sort point — GPIO TBD |
-| **Relay 1** | Fan for Bin 1 (ripe) — GPIO TBD |
-| **Relay 2** | Fan for Bin 2 (unripe) — GPIO TBD |
+| **DHT22 #1** | RIPE bin — Pi GPIO 4 (physical pin 7), 3.3V power — wired and tested |
+| **DHT22 #2** | UNRIPE bin — Pi GPIO 23 (physical pin 16), 3.3V power — wired and tested |
+| **Servo 1 (gate)** | Arduino pin 9 — calibrated: closed=0°, open=50° |
+| **Servo 2 (sorter)** | Arduino pin 10 — calibrated: left=145° (ripe), center=95° (unripe), right=50° (rotten) |
+| **IR sensor** | Arduino pin 2 (interrupt) — wired and tested, triggers correctly |
+| **Relay 1 + Fan 1** | Bin 1 (ripe) — Arduino pin 4 — relay clicks + fan spins confirmed |
+| **Relay 2 + Fan 2** | Bin 2 (unripe) — Arduino pin 7 — relay clicks + fan spins confirmed |
+| **Note: Relay module is 12V coil** | VCC = Arduino 5V (signal), JD-VCC = 12V supply (coils via breadboard rail), GND shared |
+| **Fan wiring** | 12V (+) → COM, NO → Fan red, Fan black → 12V (−) (back to supply via breadboard) |
 | **7-inch DSI display** | Pi's main screen — DSI cable + 5V/GND on pins 4/6. This IS the kiosk dashboard display. NOT a separate LCD component. |
 | **Arduino Uno** | Connected to Pi via USB — handles servos, IR sensor, relays. Pi serial: `/dev/ttyACM0` |
 | **5V PSU (external)** | Powers Servo 1 + Servo 2 via breadboard. NOT from Pi 5V pin. |
@@ -329,6 +331,19 @@ CREATE INDEX idx_sensors_time ON sensor_readings(timestamp);
 - [x] `scripts/test_camera.py` — MJPEG stream at port 8080, live detection working
 - [x] Full sorting workflow designed and locked in (see Sorting Cycle section)
 - [x] Dashboard requirements locked in
+- [x] Arduino IDE + arduino-cli installed (uploads from Pi terminal)
+- [x] Arduino Uno (CH340 clone) on `/dev/ttyUSB0`, serial comms verified
+- [x] Servo 1 (gate) calibrated: closed=0°, open=50°
+- [x] Servo 2 (sorter) calibrated: left=145°, center=95°, right=50°
+- [x] IR sensor wired (Arduino pin 2), triggers correctly
+- [x] Dual relay module (12V coil) wired + clicks on command
+- [x] Both fans spin via relay (or default ON at Arduino boot)
+- [x] Both DHT22 sensors reading reliably (Pi GPIO 4 + 23, 3.3V)
+- [x] **Final production firmware** uploaded — `arduino/sketches/tomato_sorter`
+  - One sketch handles all hardware
+  - Fans default ON at boot
+  - Full serial protocol implemented
+  - Calibrated angles baked in
 
 ### ⏳ Next steps (in order)
 

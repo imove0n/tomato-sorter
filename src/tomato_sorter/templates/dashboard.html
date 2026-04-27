@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tomato Sorter v2.0 — Control Dashboard</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg:        #0f1419;
+    --panel:     #1a212c;
+    --panel-2:   #232b38;
+    --border:    #2d3748;
+    --text:      #e2e8f0;
+    --text-dim:  #94a3b8;
+    --accent:    #f87171;
+    --green:     #34d399;
+    --orange:    #fbbf24;
+    --red:       #ef4444;
+    --blue:      #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+  }
+  body {
+    /* normal page scroll, no flex height constraints */
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  header h1 span { color: var(--accent); }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--panel-2);
+  }
+  .status-pill.running { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+  .status-pill.stopped { background: rgba(148, 163, 184, 0.15); color: var(--text-dim); }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.5; } }
+
+  /* Main grid */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    grid-template-rows: minmax(420px, auto) auto;
+    gap: 1px;
+    background: var(--border);
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    /* no overflow here — let the whole page scroll naturally */
+  }
+  .panel-title {
+    padding: 8px 14px;
+    background: var(--panel-2);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Camera */
+  .camera {
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    min-height: 420px;
+  }
+  .camera-feed {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 360px;
+  }
+  .camera-feed img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* Right column */
+  .sidebar { display: flex; flex-direction: column; }
+
+  /* Bin counters */
+  .bins {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+  .bin {
+    background: var(--panel);
+    padding: 14px 8px;
+    text-align: center;
+  }
+  .bin-name { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1px; }
+  .bin-count { font-size: 36px; font-weight: 700; line-height: 1; margin: 6px 0; font-variant-numeric: tabular-nums; }
+  .bin-class { font-size: 11px; font-weight: 500; }
+  .bin.ripe   .bin-count { color: var(--green); }
+  .bin.unripe .bin-count { color: var(--orange); }
+  .bin.rotten .bin-count { color: var(--red); }
+
+  /* Sensor gauges */
+  .sensors { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+  .sensor { background: var(--panel); padding: 10px 12px; }
+  .sensor-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .sensor-row { display: flex; justify-content: space-between; margin-top: 4px; font-size: 13px; }
+  .sensor-row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sensor-cached { color: var(--orange); font-size: 9px; margin-top: 2px; }
+
+  /* Status row */
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+  .status-item { background: var(--panel); padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .status-item .label { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+  .status-item .val { font-weight: 600; font-size: 13px; }
+  .val.on { color: var(--green); }
+  .val.off { color: var(--text-dim); }
+  .val.triggered { color: var(--accent); animation: pulse 0.8s infinite; }
+
+  /* Timeline — let it expand; page scroll handles overflow */
+  .timeline { padding: 10px 14px; }
+  .timeline-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .timeline-item:last-child { border: none; }
+  .timeline-idx { color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 30px; }
+  .timeline-class { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+  .timeline-class.ripe   { color: var(--green); }
+  .timeline-class.unripe { color: var(--orange); }
+  .timeline-class.rotten { color: var(--red); }
+  .timeline-bin { color: var(--text-dim); font-size: 11px; }
+
+  /* Controls */
+  .controls {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    padding: 12px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 20px;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 900px) {
+    .controls { grid-template-columns: 1fr; }
+    .last-event { text-align: left; max-width: 100%; }
+  }
+  .start-btn, .stop-btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .start-btn { background: var(--green); color: #000; }
+  .stop-btn  { background: var(--red);   color: #fff; }
+  .start-btn:hover, .stop-btn:hover { transform: translateY(-1px); }
+  .start-btn:disabled, .stop-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .manual-controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .manual-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .manual-btn:hover { background: var(--border); }
+
+  .last-event {
+    text-align: right;
+    color: var(--text-dim);
+    font-size: 12px;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TOMATO SORTER <span>v2.0</span> — CONTROL DASHBOARD</h1>
+  <div class="status-pill" id="cycle-status"><span class="dot"></span><span id="cycle-status-text">IDLE</span></div>
+</header>
+
+<main>
+  <!-- Camera feed -->
+  <section class="camera">
+    <div class="panel-title">Live Camera Feed — YOLO11n Detection</div>
+    <div class="camera-feed">
+      <img src="/stream" alt="camera" />
+    </div>
+  </section>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="panel-title">Bin Counters</div>
+    <div class="bins">
+      <div class="bin ripe">
+        <div class="bin-name">Bin 1</div>
+        <div class="bin-count" id="count-ripe">0</div>
+        <div class="bin-class" style="color: var(--green);">RIPE</div>
+      </div>
+      <div class="bin unripe">
+        <div class="bin-name">Bin 2</div>
+        <div class="bin-count" id="count-unripe">0</div>
+        <div class="bin-class" style="color: var(--orange);">UNRIPE</div>
+      </div>
+      <div class="bin rotten">
+        <div class="bin-name">Bin 3</div>
+        <div class="bin-count" id="count-rotten">0</div>
+        <div class="bin-class" style="color: var(--red);">ROTTEN</div>
+      </div>
+    </div>
+
+    <div class="panel-title">Environment Sensors (DHT22)</div>
+    <div class="sensors">
+      <div class="sensor">
+        <div class="sensor-label">Bin 1 — Ripe</div>
+        <div class="sensor-row"><span>Temp</span><span id="ripe-temp">—</span></div>
+        <div class="sensor-row"><span>Humidity</span><span id="ripe-hum">—</span></div>
+        <div class="sensor-cached" id="ripe-cached"></div>
+      </div>
+      <div class="sensor">
+        <div class="sensor-label">Bin 2 — Unripe</div>
+        <div class="sensor-row"><span>Temp</span><span id="unripe-temp">—</span></div>
+        <div class="sensor-row"><span>Humidity</span><span id="unripe-hum">—</span></div>
+        <div class="sensor-cached" id="unripe-cached"></div>
+      </div>
+    </div>
+
+    <div class="panel-title">System Status</div>
+    <div class="status-grid">
+      <div class="status-item"><span class="label">Conveyor</span><span class="val on">RUNNING</span></div>
+      <div class="status-item"><span class="label">IR Sensor</span><span class="val" id="ir-val">CLEAR</span></div>
+      <div class="status-item"><span class="label">Fan 1</span><span class="val" id="fan1-val">ON</span></div>
+      <div class="status-item"><span class="label">Fan 2</span><span class="val" id="fan2-val">ON</span></div>
+      <div class="status-item"><span class="label">Gate</span><span class="val" id="gate-val">CLOSED</span></div>
+      <div class="status-item"><span class="label">Sorter</span><span class="val" id="sorter-val">CENTER</span></div>
+      <div class="status-item"><span class="label">FPS</span><span class="val" id="fps-val">0.0</span></div>
+      <div class="status-item"><span class="label">Total</span><span class="val" id="total-val">0</span></div>
+    </div>
+
+    <div class="panel-title">Activity Timeline</div>
+    <div class="timeline" id="timeline">
+      <div style="color: var(--text-dim); font-size: 12px; padding: 12px 0;">No activity yet — press START to begin sorting.</div>
+    </div>
+  </aside>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div>
+      <button class="start-btn" id="start-btn">Start Cycle</button>
+      <button class="stop-btn"  id="stop-btn" disabled>Stop</button>
+    </div>
+    <div class="manual-controls">
+      <button class="manual-btn" data-action="gate_open">Gate Open</button>
+      <button class="manual-btn" data-action="gate_close">Gate Close</button>
+      <button class="manual-btn" data-action="sort_ripe">Sort Ripe</button>
+      <button class="manual-btn" data-action="sort_unripe">Sort Unripe</button>
+      <button class="manual-btn" data-action="sort_rotten">Sort Rotten</button>
+      <button class="manual-btn" data-action="fan1_on">Fan 1 On</button>
+      <button class="manual-btn" data-action="fan1_off">Fan 1 Off</button>
+      <button class="manual-btn" data-action="fan2_on">Fan 2 On</button>
+      <button class="manual-btn" data-action="fan2_off">Fan 2 Off</button>
+    </div>
+    <div class="last-event" id="last-event">—</div>
+  </div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const sock = io();
+
+  function fmtTemp(v) { return v == null ? "—" : v.toFixed(1) + "°C"; }
+  function fmtHum(v)  { return v == null ? "—" : v.toFixed(1) + "%"; }
+
+  function render(s) {
+    // Cycle status
+    const cs = $("cycle-status");
+    cs.classList.toggle("running", s.cycle_running);
+    cs.classList.toggle("stopped", !s.cycle_running);
+    $("cycle-status-text").textContent = s.cycle_running ? "RUNNING" : "IDLE";
+    $("start-btn").disabled = s.cycle_running;
+    $("stop-btn").disabled  = !s.cycle_running;
+
+    // Counts
+    $("count-ripe").textContent   = s.counts.ripe;
+    $("count-unripe").textContent = s.counts.unripe;
+    $("count-rotten").textContent = s.counts.rotten;
+    $("total-val").textContent    = s.counts.ripe + s.counts.unripe + s.counts.rotten;
+
+    // Sensors
+    const r = s.sensors.ripe || {}, u = s.sensors.unripe || {};
+    $("ripe-temp").textContent = fmtTemp(r.temp);
+    $("ripe-hum").textContent  = fmtHum(r.hum);
+    $("ripe-cached").textContent = r.cached ? `(cached, ${r.age_sec}s old)` : "";
+    $("unripe-temp").textContent = fmtTemp(u.temp);
+    $("unripe-hum").textContent  = fmtHum(u.hum);
+    $("unripe-cached").textContent = u.cached ? `(cached, ${u.age_sec}s old)` : "";
+
+    // Status
+    const irEl = $("ir-val");
+    irEl.textContent = s.ir;
+    irEl.className = "val " + (s.ir === "TRIGGERED" ? "triggered" : "off");
+    $("fan1-val").textContent = s.fan1_on ? "ON"  : "OFF";
+    $("fan1-val").className   = "val "  + (s.fan1_on ? "on" : "off");
+    $("fan2-val").textContent = s.fan2_on ? "ON"  : "OFF";
+    $("fan2-val").className   = "val "  + (s.fan2_on ? "on" : "off");
+    $("gate-val").textContent   = s.gate;
+    $("sorter-val").textContent = s.sorter;
+    $("fps-val").textContent    = (s.fps || 0).toFixed(1);
+    $("last-event").textContent = s.last_event || "—";
+
+    // Timeline
+    const tl = $("timeline");
+    if (s.timeline.length === 0) {
+      tl.innerHTML = '<div style="color: var(--text-dim); font-size: 12px; padding: 12px 0;">No activity yet — press START to begin sorting.</div>';
+    } else {
+      tl.innerHTML = s.timeline.map(t => `
+        <div class="timeline-item">
+          <span class="timeline-idx">#${t.index}</span>
+          <span><span class="timeline-class ${t.class}">${t.class}</span> <span style="color: var(--text-dim);">${t.ts}</span></span>
+          <span class="timeline-bin">Bin ${t.bin}</span>
+        </div>`).join("");
+    }
+  }
+
+  sock.on("state", render);
+  fetch("/api/state").then(r => r.json()).then(render);
+
+  // Buttons
+  $("start-btn").addEventListener("click", () => fetch("/api/start", {method: "POST"}));
+  $("stop-btn").addEventListener("click",  () => fetch("/api/stop",  {method: "POST"}));
+  document.querySelectorAll(".manual-btn").forEach(b => {
+    b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
+  });
+</script>
+</body>
+</html>
