@@ -1,0 +1,62 @@
+# =============================================================
+# Tomato Sorter v2.0 — .gitignore
+# =============================================================
+
+# --- Python ---------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Virtual environment --------------------------------------
+.venv/
+venv/
+env/
+
+# --- Models (large binaries — distribute separately) ----------
+models/*.bin
+models/*.param
+models/*.broken
+models/my_model11n480/
+
+# --- Runtime data (changes constantly, NOT source) ------------
+data/sorter.db
+data/sorter.db-journal
+data/sorter.db-wal
+data/sorter.db-shm
+data/logs/
+data/logs/*.log
+*.log
+
+# --- IDE / editor ---------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Documentation outputs ------------------------------------
+docs/*.pdf
+
+# --- OS / temp ------------------------------------------------
+*.tmp
+*.bak
+.cache/
+
+# --- Local-only configs (keep settings.yaml + servo_angles.json) ---
+.env
+.env.local
+
+# --- Arduino build artifacts ----------------------------------
+arduino/sketches/*/build/
+
+# --- Plan files / scratch -------------------------------------
+*.scratch

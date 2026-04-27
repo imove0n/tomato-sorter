@@ -50,9 +50,9 @@ const int  RELAY2_PIN = 7;      // fan 2
 const int GATE_CLOSED   = 0;
 const int GATE_OPEN     = 50;
 
-const int SORT_LEFT     = 145;  // ripe
-const int SORT_CENTER   = 95;   // unripe (rest)
-const int SORT_RIGHT    = 50;   // rotten
+const int SORT_LEFT     = 122;  // ripe
+const int SORT_CENTER   = 90;   // unripe (rest)
+const int SORT_RIGHT    = 55;   // rotten
 
 // -------------------- Relay polarity --------------------
 const int RELAY_ON  = LOW;      // active LOW module
