@@ -95,26 +95,76 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* Camera */
+  /* Detection panel (replaces camera in dashboard) */
   .camera {
     display: flex;
     flex-direction: column;
-    background: #000;
+    background: var(--panel);
     min-height: 420px;
   }
-  .camera-feed {
+  .detection-panel {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 30px;
+    gap: 12px;
+  }
+  .detection-class {
+    font-size: 72px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: var(--text-dim);
+    transition: color 0.3s;
+  }
+  .detection-class.ripe   { color: var(--green); }
+  .detection-class.unripe { color: var(--orange); }
+  .detection-class.rotten { color: var(--red); }
+  .detection-conf-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 12px;
+  }
+  .detection-conf {
+    font-size: 32px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .detection-bar {
+    width: 60%;
+    height: 8px;
+    background: var(--panel-2);
+    border-radius: 4px;
     overflow: hidden;
-    min-height: 360px;
+    margin-top: 4px;
   }
-  .camera-feed img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+  .detection-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--blue);
+    transition: width 0.3s, background 0.3s;
   }
+  .detection-fps {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .camera-link {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: none;
+    margin-top: 18px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+  .camera-link:hover { color: var(--text); border-color: var(--text-dim); }
 
   /* Right column */
   .sidebar { display: flex; flex-direction: column; }
@@ -242,11 +292,16 @@
 </header>
 
 <main>
-  <!-- Camera feed -->
+  <!-- Detection panel (camera headless for performance) -->
   <section class="camera">
-    <div class="panel-title">Live Camera Feed — YOLO11n Detection</div>
-    <div class="camera-feed">
-      <img src="/stream" alt="camera" />
+    <div class="panel-title">Live YOLO Detection (headless)</div>
+    <div class="detection-panel">
+      <div class="detection-class" id="det-class">—</div>
+      <div class="detection-conf-label">Confidence</div>
+      <div class="detection-conf" id="det-conf">—</div>
+      <div class="detection-bar"><div class="detection-bar-fill" id="det-bar"></div></div>
+      <div class="detection-fps">FPS: <span id="det-fps">0.0</span></div>
+      <a href="/stream" target="_blank" class="camera-link">Open camera viewer in new tab →</a>
     </div>
   </section>
 
@@ -309,7 +364,7 @@
   <div class="controls">
     <div>
       <button class="start-btn" id="start-btn">Start Cycle</button>
-      <button class="stop-btn"  id="stop-btn" disabled>Stop</button>
+      <button class="stop-btn"  id="stop-btn">Stop</button>
     </div>
     <div class="manual-controls">
       <button class="manual-btn" data-action="gate_open">Gate Open</button>
@@ -339,8 +394,11 @@
     cs.classList.toggle("running", s.cycle_running);
     cs.classList.toggle("stopped", !s.cycle_running);
     $("cycle-status-text").textContent = s.cycle_running ? "RUNNING" : "IDLE";
-    $("start-btn").disabled = s.cycle_running;
-    $("stop-btn").disabled  = !s.cycle_running;
+    // Both buttons always clickable — visual feedback only via opacity
+    $("start-btn").disabled = false;
+    $("stop-btn").disabled  = false;
+    $("start-btn").style.opacity = s.cycle_running ? "0.4" : "1";
+    $("stop-btn").style.opacity  = s.cycle_running ? "1"   : "0.4";
 
     // Counts
     $("count-ripe").textContent   = s.counts.ripe;
@@ -356,6 +414,24 @@
     $("unripe-temp").textContent = fmtTemp(u.temp);
     $("unripe-hum").textContent  = fmtHum(u.hum);
     $("unripe-cached").textContent = u.cached ? `(cached, ${u.age_sec}s old)` : "";
+
+    // Live detection display
+    const det = (s.live_detections && s.live_detections[0]) || null;
+    const dc = $("det-class");
+    if (det) {
+      dc.textContent = det.label;
+      dc.className = "detection-class " + det.label;
+      $("det-conf").textContent = (det.conf * 100).toFixed(0) + "%";
+      $("det-bar").style.width = (det.conf * 100) + "%";
+      const colors = {ripe: "var(--green)", unripe: "var(--orange)", rotten: "var(--red)"};
+      $("det-bar").style.background = colors[det.label] || "var(--blue)";
+    } else {
+      dc.textContent = "—";
+      dc.className = "detection-class";
+      $("det-conf").textContent = "—";
+      $("det-bar").style.width = "0%";
+    }
+    $("det-fps").textContent = (s.fps || 0).toFixed(1);
 
     // Status
     const irEl = $("ir-val");

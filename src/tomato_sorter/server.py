@@ -55,6 +55,16 @@ def create_app(detector: Detector, sensors: SensorService,
             "detections": detector.latest_detections(),
         })
 
+    @app.route("/api/arduino/inbox")
+    def api_arduino_inbox():
+        """Diagnostic: shows last 20 messages received from Arduino."""
+        msgs = arduino.recent_inbox(20)
+        return jsonify({
+            "messages": [
+                {"ts": ts, "line": line} for ts, line in msgs
+            ]
+        })
+
     @app.route("/api/start", methods=["POST"])
     def api_start():
         orchestrator.start()

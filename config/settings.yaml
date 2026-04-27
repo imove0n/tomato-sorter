@@ -41,11 +41,12 @@ arduino:
 
 # --- Sort cycle timing (milliseconds) -------------------------
 cycle:
-  gate_open_hold_ms:  300    # how long Servo 1 stays open per drop
-  conveyor_travel_ms: 4000   # max time tomato can be on conveyor before timeout
-  sort_settle_ms:     600    # wait after Servo 2 moves so tomato falls into bin
-  rest_between_ms:    300    # idle between cycles
-  fallback_class: "unripe"   # if no detection by IR trigger, default to this
+  gate_open_hold_ms:    300    # how long Servo 1 stays open per drop
+  min_travel_ms:        1500   # ignore IR triggers before this — tomato can't reach IR yet
+  conveyor_travel_ms:   6000   # max time tomato can be on conveyor before timeout
+  sort_settle_ms:       2500   # hold sort position so tomato fully falls into bin
+  rest_between_ms:      300    # idle between cycles
+  fallback_class: "unripe"     # if no detection by IR trigger, default to this
 
 # --- Database -------------------------------------------------
 database:

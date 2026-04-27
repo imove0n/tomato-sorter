@@ -61,10 +61,23 @@ class Detector:
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
+    def _open_camera(self):
+        """Try the configured device first, then probe video0..video4."""
+        candidates = [self.cam_device] + [i for i in range(5) if i != self.cam_device]
+        for idx in candidates:
+            cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self.cam_w)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.cam_h)
+                ret, frame = cap.read()
+                if ret and frame is not None and frame.size > 0:
+                    print(f"[detector] Using /dev/video{idx}")
+                    return cap
+                cap.release()
+        raise RuntimeError("No working USB camera found")
+
     def start(self):
-        self._cap = cv2.VideoCapture(self.cam_device, cv2.CAP_V4L2)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self.cam_w)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.cam_h)
+        self._cap = self._open_camera()
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -116,14 +129,10 @@ class Detector:
                 continue
 
             dets = self._detect(frame)
-            annotated = self._annotate(frame.copy(), dets)
 
-            ok2, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
             with self._lock:
                 self._latest_detections = dets
-                self._latest_frame = annotated
-                if ok2:
-                    self._latest_jpeg = buf.tobytes()
+                self._latest_frame = frame   # keep raw frame, no annotation in hot loop
 
             n += 1
             now = time.time()
@@ -138,8 +147,15 @@ class Detector:
             return [d.to_dict() for d in self._latest_detections]
 
     def latest_jpeg(self) -> Optional[bytes]:
+        """On-demand: encode latest frame with annotations only when requested."""
         with self._lock:
-            return self._latest_jpeg
+            frame = self._latest_frame
+            dets  = list(self._latest_detections)
+        if frame is None:
+            return None
+        annotated = self._annotate(frame.copy(), dets)
+        ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        return buf.tobytes() if ok else None
 
     def fps(self) -> float:
         return self._fps

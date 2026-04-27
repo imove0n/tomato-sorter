@@ -30,17 +30,21 @@ class Orchestrator:
         self._fallback  = self._cycle_cfg["fallback_class"]
         self._thread = None
         self._stop_evt = threading.Event()
-        self._ir_evt = threading.Event()
         self._latest_class: str = self._fallback
         self._latest_conf: float = 0.0
         self._latest_box = (0, 0, 0, 0)
+        # Track IR by timestamp + current state — avoids edge-event race
+        self._ir_state = "CLEAR"
+        self._last_ir_trigger_ts: float = 0.0
 
     # called from arduino reader thread when IR fires
     def on_ir(self, line: str):
         if line == "IR:TRIGGERED":
+            self._ir_state = "TRIGGERED"
+            self._last_ir_trigger_ts = time.time()
             STATE.update(ir_state="TRIGGERED")
-            self._ir_evt.set()
         elif line == "IR:CLEAR":
+            self._ir_state = "CLEAR"
             STATE.update(ir_state="CLEAR")
 
     def start(self):
@@ -80,33 +84,63 @@ class Orchestrator:
         time.sleep(self._cycle_cfg["gate_open_hold_ms"] / 1000.0)
         self.arduino.gate_close()
         STATE.update(gate_position="CLOSED")
+        gate_close_ts = time.time()
 
-        # 2) Wait for IR to trigger (tomato reached sort point)
-        STATE.push_event("Tomato on conveyor — scanning")
-        self._ir_evt.clear()
-        timeout = self._cycle_cfg["conveyor_travel_ms"] / 1000.0
-        start = time.time()
+        # 2) Camera continuously classifies; we WAIT FOR IR TRIGGER.
+        #    Servo 2 will NOT fire unless IR sensor actually catches the tomato.
+        STATE.push_event("Tomato on conveyor — waiting for IR sensor")
+        timeout        = self._cycle_cfg["conveyor_travel_ms"] / 1000.0
+        min_travel     = self._cycle_cfg.get("min_travel_ms", 0) / 1000.0
+        ir_valid_after = gate_close_ts + min_travel
+
         best_conf = 0.0
-        best_class = self._fallback
+        best_class = None
         best_box = (0, 0, 0, 0)
-        while time.time() - start < timeout and not self._stop_evt.is_set():
+
+        # Snapshot the timestamp baseline — only count NEW IR triggers
+        baseline_ir_ts = self._last_ir_trigger_ts
+        ir_caught = False
+
+        while time.time() - gate_close_ts < timeout and not self._stop_evt.is_set():
+            # Camera continuously classifies (keep highest-confidence detection)
             d = self.detector.best_detection()
             if d and d.conf > best_conf:
                 best_conf = d.conf
                 best_class = d.label
                 best_box = d.box
-            if self._ir_evt.wait(timeout=0.05):
+
+            # IR fires only counts if:
+            #   - it's a NEW trigger (newer than the one when we entered the cycle)
+            #   - it happened AFTER min_travel_ms has elapsed
+            if (self._last_ir_trigger_ts > baseline_ir_ts and
+                self._last_ir_trigger_ts > ir_valid_after):
+                ir_caught = True
                 break
+            time.sleep(0.05)
 
         if self._stop_evt.is_set():
             return
 
+        # 3) Decide based on IR — Servo 2 ONLY moves if IR caught the tomato
+        if not ir_caught:
+            STATE.push_event(f"IR did NOT trigger in {timeout:.0f}s — skipping sort (Servo 2 stays at center)")
+            database.log_event("warning", "orchestrator",
+                               f"IR timeout, no sort. Camera saw best={best_class} conf={best_conf:.2f}")
+            return
+
+        # IR triggered → sort using latest camera classification
+        ir_delay_ms = (time.time() - gate_close_ts) * 1000
+
+        # If camera somehow missed the tomato but IR caught it, default to unripe
+        if best_class is None:
+            best_class = self._fallback
+            STATE.push_event(f"IR caught tomato but camera missed — defaulting to {best_class}")
+
         STATE.update(tomato_index=STATE.snapshot()["tomato_index"] + 1)
         idx = STATE.snapshot()["tomato_index"]
 
-        # 3) Sort
         bin_no = self.BIN_FOR_CLASS.get(best_class, 2)
-        STATE.push_event(f"Tomato #{idx} -> {best_class.upper()} (Bin {bin_no})")
+        STATE.push_event(f"IR triggered after {ir_delay_ms:.0f}ms → Sort #{idx} as {best_class.upper()} (Bin {bin_no})")
         STATE.push_timeline({
             "index": idx,
             "ts":     time.strftime("%H:%M:%S"),
@@ -116,6 +150,7 @@ class Orchestrator:
         })
         database.log_detection(best_class, best_conf, best_box, sorted_to=bin_no)
 
+        # 4) Move Servo 2 NOW (only after IR triggered)
         if best_class == "ripe":
             self.arduino.sort_ripe()
             STATE.update(sorter_position="LEFT")
@@ -126,9 +161,10 @@ class Orchestrator:
             self.arduino.sort_unripe()
             STATE.update(sorter_position="CENTER")
 
+        # 5) Hold position so tomato falls into bin
         time.sleep(self._cycle_cfg["sort_settle_ms"] / 1000.0)
 
-        # 4) Return to center
+        # 6) Return to center (rest position)
         if best_class != "unripe":
             self.arduino.sort_unripe()
             STATE.update(sorter_position="CENTER")
