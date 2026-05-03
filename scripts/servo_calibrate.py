@@ -31,7 +31,13 @@ def main():
     ard = serial.Serial(PORT, BAUD, timeout=1)
     time.sleep(2)
 
-    # Drain boot banner
+    # Hard-flush any stale data from previous sessions
+    ard.reset_input_buffer()
+    ard.reset_output_buffer()
+
+    # Verify Arduino is alive and synced
+    ard.write(b"STATUS\n"); ard.flush()
+    time.sleep(0.5)
     while ard.in_waiting:
         line = ard.readline().decode(errors="ignore").strip()
         if line:

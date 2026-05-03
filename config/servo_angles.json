@@ -3,5 +3,6 @@
   "open": 50,
   "center": 90,
   "right": 55,
-  "left": 122
+  "left": 122,
+  "servo3_open": 0
 }
