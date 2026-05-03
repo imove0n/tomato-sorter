@@ -87,10 +87,12 @@ class SensorService:
         with self._lock:
             out = {}
             for k, r in self._readings.items():
+                # Convert infinity to null for valid JSON
+                age = None if r.age_sec == float("inf") else round(r.age_sec, 1)
                 out[k] = {
                     "temp":    r.temp,
                     "hum":     r.hum,
                     "cached":  r.cached,
-                    "age_sec": round(r.age_sec, 1),
+                    "age_sec": age,
                 }
             return out

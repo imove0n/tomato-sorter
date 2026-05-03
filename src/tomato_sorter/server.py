@@ -75,6 +75,16 @@ def create_app(detector: Detector, sensors: SensorService,
         orchestrator.stop()
         return jsonify(ok=True)
 
+    @app.route("/api/reset", methods=["POST"])
+    def api_reset():
+        """Wipe all bin counts, timeline, and history. Use before a fresh demo."""
+        orchestrator.stop()
+        database.reset_all()
+        STATE.update(tomato_index=0)
+        STATE.timeline.clear()
+        STATE.push_event("All counts and history reset")
+        return jsonify(ok=True)
+
     @app.route("/api/manual/<action>", methods=["POST"])
     def api_manual(action):
         if action == "gate_open":   arduino.gate_open();   STATE.update(gate_position="OPEN")

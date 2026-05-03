@@ -4,7 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Tomato Sorter v2.0 — Control Dashboard</title>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!-- No external CDN — everything is local. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <style>
   :root {
     --bg:        #0f1419;
@@ -251,6 +254,21 @@
   }
   .start-btn { background: var(--green); color: #000; }
   .stop-btn  { background: var(--red);   color: #fff; }
+  .reset-btn {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 22px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-left: 8px;
+    transition: all 0.15s;
+  }
+  .reset-btn:hover { background: var(--panel-2); border-color: var(--text-dim); transform: translateY(-1px); }
   .start-btn:hover, .stop-btn:hover { transform: translateY(-1px); }
   .start-btn:disabled, .stop-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
@@ -365,6 +383,7 @@
     <div>
       <button class="start-btn" id="start-btn">Start Cycle</button>
       <button class="stop-btn"  id="stop-btn">Stop</button>
+      <button class="reset-btn" id="reset-btn">Reset</button>
     </div>
     <div class="manual-controls">
       <button class="manual-btn" data-action="gate_open">Gate Open</button>
@@ -383,7 +402,6 @@
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const sock = io();
 
   function fmtTemp(v) { return v == null ? "—" : v.toFixed(1) + "°C"; }
   function fmtHum(v)  { return v == null ? "—" : v.toFixed(1) + "%"; }
@@ -460,12 +478,24 @@
     }
   }
 
-  sock.on("state", render);
-  fetch("/api/state").then(r => r.json()).then(render);
+  // Poll the API every 500ms — simple, no CDN, no socket.io
+  function poll() {
+    fetch("/api/state", {cache: "no-store"})
+      .then(r => r.json())
+      .then(render)
+      .catch(err => console.warn("state fetch failed:", err));
+  }
+  poll();
+  setInterval(poll, 500);
 
   // Buttons
   $("start-btn").addEventListener("click", () => fetch("/api/start", {method: "POST"}));
   $("stop-btn").addEventListener("click",  () => fetch("/api/stop",  {method: "POST"}));
+  $("reset-btn").addEventListener("click", () => {
+    if (confirm("Reset all bin counts and history?")) {
+      fetch("/api/reset", {method: "POST"});
+    }
+  });
   document.querySelectorAll(".manual-btn").forEach(b => {
     b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
   });

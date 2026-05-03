@@ -93,6 +93,17 @@ def recent_detections(limit: int = 10) -> List[dict]:
     return [dict(r) for r in rows]
 
 
+def reset_all():
+    """Wipe detections, sensor readings, and events. Resets all bin counters to 0."""
+    with _lock, _connect() as conn:
+        conn.executescript("""
+            DELETE FROM detections;
+            DELETE FROM sensor_readings;
+            DELETE FROM system_events;
+            DELETE FROM sqlite_sequence;
+        """)
+
+
 def total_counts() -> dict:
     with _lock, _connect() as conn:
         rows = conn.execute(
