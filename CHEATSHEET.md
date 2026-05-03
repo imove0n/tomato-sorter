@@ -236,6 +236,30 @@ READY                boot complete
 
 ## 8. Debugging — Common Problems
 
+### "Servos don't move from dashboard"
+
+**Most common cause:** wrong firmware on Arduino.
+
+After calibrating, you need to flash the **production firmware** back. Check the Arduino's boot banner via the inbox:
+
+```bash
+curl -s http://localhost:5000/api/arduino/inbox | python3 -m json.tool | head -8
+```
+
+Look for the FIRST line. It should say:
+- ✅ `BOOT: gate=0 sorter=90 relay1=ON relay2=ON` → production firmware (correct)
+- ❌ `BOOT: Servo calibrate ready (pin 9)` → Servo 1 calibration sketch (wrong!)
+- ❌ `BOOT: Servo 2 calibrate ready (pin 10)` → Servo 2 calibration sketch (wrong!)
+- ❌ `BOOT: IR sensor test ready` → IR test sketch (wrong!)
+
+If it's wrong, re-upload production firmware:
+```bash
+~/.local/bin/arduino-cli upload -p /dev/ttyUSB0 \
+  --fqbn arduino:avr:uno arduino/sketches/tomato_sorter
+```
+
+Then refresh dashboard.
+
 ### "App won't start"
 
 ```bash
@@ -351,6 +375,42 @@ YOLO too slow (2 FPS) for fast-moving tomatoes. Solutions:
 ---
 
 ## 9. Calibration Workflow
+
+> ⚠️ **CRITICAL — read this first:** The Arduino can only run ONE sketch at a time.
+> The calibration sketches accept `A:90` / `B:90` commands.
+> The production firmware accepts `SERVO1:OPEN` / `SERVO2:LEFT` commands.
+> **They are NOT interchangeable.**
+>
+> The dashboard ONLY works with the **production firmware** (`tomato_sorter`).
+> If the calibration sketch is on the Arduino, the dashboard will fail silently —
+> servos won't move, cycle won't sort, you'll see "UNKNOWN" responses in the logs.
+>
+> **Always re-upload `arduino/sketches/tomato_sorter` after any calibration session.**
+
+### Workflow: switching between firmware
+
+| What you want to do | Sketch on Arduino       | Tool to use                        |
+|---------------------|-------------------------|-------------------------------------|
+| Use the dashboard   | `tomato_sorter`         | `python -m tomato_sorter.main`     |
+| Calibrate Servo 1   | `servo_calibrate`       | `python scripts/servo_calibrate.py` |
+| Calibrate Servo 2   | `servo2_calibrate`      | `python scripts/servo2_calibrate.py`|
+| Test IR alone       | `ir_test`               | `python scripts/ir_test.py`         |
+| Test relay alone    | `relay_test`            | (manual via serial)                 |
+
+### Quick "back to production" command
+
+After any calibration, run this to flash the production firmware back:
+
+```bash
+cd ~/tomato-sorter
+~/.local/bin/arduino-cli upload -p /dev/ttyUSB0 \
+  --fqbn arduino:avr:uno arduino/sketches/tomato_sorter
+```
+
+Then start the dashboard:
+```bash
+.venv/bin/python -m tomato_sorter.main
+```
 
 ### Recalibrate Servo 1 (gate)
 
