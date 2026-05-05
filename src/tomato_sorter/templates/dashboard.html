@@ -97,6 +97,35 @@
     color: var(--text-dim);
     border-bottom: 1px solid var(--border);
   }
+  .panel-title-row {
+    padding: 8px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .panel-title-row .panel-title-text {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .title-action {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .title-action:hover { background: var(--border); }
 
   /* Detection panel (replaces camera in dashboard) */
   .camera {
@@ -225,6 +254,119 @@
   .timeline-class.unripe { color: var(--orange); }
   .timeline-class.rotten { color: var(--red); }
   .timeline-bin { color: var(--text-dim); font-size: 11px; }
+
+  /* Expanded analytics */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(15, 20, 25, 0.92);
+    display: none;
+    padding: 22px;
+  }
+  .modal.open { display: block; }
+  .modal-shell {
+    height: calc(100vh - 44px);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    min-width: 0;
+  }
+  .modal-head {
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .modal-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .modal-subtitle {
+    margin-top: 3px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .modal-close {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 7px 11px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .modal-close:hover { background: var(--border); }
+  .analytics-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+  .analytics-stat {
+    background: var(--panel);
+    padding: 12px 14px;
+    min-width: 0;
+  }
+  .analytics-stat-label {
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .analytics-stat-value {
+    margin-top: 5px;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .analytics-table-wrap {
+    overflow: auto;
+  }
+  .analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .analytics-table th,
+  .analytics-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    white-space: nowrap;
+  }
+  .analytics-table th {
+    position: sticky;
+    top: 0;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    z-index: 1;
+  }
+  .analytics-empty {
+    color: var(--text-dim);
+    padding: 20px;
+    font-size: 13px;
+  }
+  @media (max-width: 900px) {
+    .modal { padding: 10px; }
+    .modal-shell { height: calc(100vh - 20px); }
+    .analytics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .analytics-stat-value { font-size: 18px; }
+  }
 
   /* Controls */
   .controls {
@@ -371,7 +513,10 @@
       <div class="status-item"><span class="label">Total</span><span class="val" id="total-val">0</span></div>
     </div>
 
-    <div class="panel-title">Activity Timeline</div>
+    <div class="panel-title-row">
+      <div class="panel-title-text">Activity Timeline</div>
+      <button class="title-action" id="analytics-open-btn">Maximize</button>
+    </div>
     <div class="timeline" id="timeline">
       <div style="color: var(--text-dim); font-size: 12px; padding: 12px 0;">No activity yet — press START to begin sorting.</div>
     </div>
@@ -402,11 +547,58 @@
   </div>
 </main>
 
+<div class="modal" id="analytics-modal" aria-hidden="true">
+  <div class="modal-shell">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Full Analytics History</div>
+        <div class="modal-subtitle" id="analytics-range">Loading...</div>
+      </div>
+      <button class="modal-close" id="analytics-close-btn">Close</button>
+    </div>
+    <div class="analytics-summary">
+      <div class="analytics-stat">
+        <div class="analytics-stat-label">Total Sorted</div>
+        <div class="analytics-stat-value" id="analytics-total">—</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-label">Ripe</div>
+        <div class="analytics-stat-value" id="analytics-ripe" style="color: var(--green);">—</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-label">Unripe</div>
+        <div class="analytics-stat-value" id="analytics-unripe" style="color: var(--orange);">—</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-label">Rotten</div>
+        <div class="analytics-stat-value" id="analytics-rotten" style="color: var(--red);">—</div>
+      </div>
+      <div class="analytics-stat">
+        <div class="analytics-stat-label">Avg Confidence</div>
+        <div class="analytics-stat-value" id="analytics-confidence">—</div>
+      </div>
+    </div>
+    <div class="analytics-table-wrap" id="analytics-table-wrap">
+      <div class="analytics-empty">Loading full history...</div>
+    </div>
+  </div>
+</div>
+
 <script>
   const $ = (id) => document.getElementById(id);
 
   function fmtTemp(v) { return v == null ? "—" : v.toFixed(1) + "°C"; }
   function fmtHum(v)  { return v == null ? "—" : v.toFixed(1) + "%"; }
+  function escapeHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[ch]));
+  }
+  function fmtPercent(v) { return v == null ? "—" : (v * 100).toFixed(1) + "%"; }
 
   function render(s) {
     // Cycle status
@@ -501,6 +693,75 @@
   });
   document.querySelectorAll(".manual-btn").forEach(b => {
     b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
+  });
+
+  function renderAnalytics(data) {
+    $("analytics-total").textContent = data.total || 0;
+    $("analytics-ripe").textContent = data.counts?.ripe || 0;
+    $("analytics-unripe").textContent = data.counts?.unripe || 0;
+    $("analytics-rotten").textContent = data.counts?.rotten || 0;
+    $("analytics-confidence").textContent = fmtPercent(data.avg_confidence);
+    $("analytics-range").textContent = data.first_timestamp
+      ? `${data.first_timestamp} → ${data.last_timestamp} · ${data.detections_seen} detections saved`
+      : "No saved detections yet";
+
+    const rows = data.detections || [];
+    if (rows.length === 0) {
+      $("analytics-table-wrap").innerHTML = '<div class="analytics-empty">No saved detections yet.</div>';
+      return;
+    }
+    $("analytics-table-wrap").innerHTML = `
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Time</th>
+            <th>Class</th>
+            <th>Confidence</th>
+            <th>Bin</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>#${row.id}</td>
+              <td>${escapeHtml(row.timestamp)}</td>
+              <td><span class="timeline-class ${escapeHtml(row.class)}">${escapeHtml(row.class)}</span></td>
+              <td>${fmtPercent(row.confidence)}</td>
+              <td>${row.sorted_to == null ? "—" : "Bin " + row.sorted_to}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  function openAnalytics() {
+    $("analytics-modal").classList.add("open");
+    $("analytics-modal").setAttribute("aria-hidden", "false");
+    $("analytics-range").textContent = "Loading...";
+    $("analytics-table-wrap").innerHTML = '<div class="analytics-empty">Loading full history...</div>';
+    fetch("/api/analytics", {cache: "no-store"})
+      .then(r => r.json())
+      .then(renderAnalytics)
+      .catch(err => {
+        console.warn("analytics fetch failed:", err);
+        $("analytics-range").textContent = "Could not load analytics";
+        $("analytics-table-wrap").innerHTML = '<div class="analytics-empty">Could not load full history.</div>';
+      });
+  }
+
+  function closeAnalytics() {
+    $("analytics-modal").classList.remove("open");
+    $("analytics-modal").setAttribute("aria-hidden", "true");
+  }
+
+  $("analytics-open-btn").addEventListener("click", openAnalytics);
+  $("analytics-close-btn").addEventListener("click", closeAnalytics);
+  $("analytics-modal").addEventListener("click", (event) => {
+    if (event.target === $("analytics-modal")) closeAnalytics();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAnalytics();
   });
 </script>
 </body>

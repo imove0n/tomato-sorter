@@ -1,6 +1,7 @@
 """DHT22 polling thread with caching for failed reads."""
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
@@ -57,11 +58,17 @@ class SensorService:
     def __init__(self):
         cfg = SETTINGS["sensors"]
         self._interval = cfg["poll_interval_seconds"]
+        sim = cfg.get("simulate", {})
+        self._sim_target = "unripe" if sim.get("unripe_from") else None
+        self._sim_source = sim.get("unripe_from")
+        self._sim_delay = float(sim.get("delay_seconds", 0))
         self._channels = [
-            _SensorChannel("ripe",   cfg["ripe"]["gpio_pin"],   cfg["ripe"]["label"]),
-            _SensorChannel("unripe", cfg["unripe"]["gpio_pin"], cfg["unripe"]["label"]),
+            _SensorChannel(key, cfg[key]["gpio_pin"], cfg[key]["label"])
+            for key in ("ripe", "unripe")
+            if key != self._sim_target
         ]
         self._readings: dict[str, Reading] = {}
+        self._history: dict[str, deque[tuple[float, Reading]]] = {}
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
         self._running = False
@@ -78,10 +85,37 @@ class SensorService:
         while self._running:
             for ch in self._channels:
                 r = ch.read()
+                now = time.time()
                 with self._lock:
                     self._readings[ch.key] = r
+                    hist = self._history.setdefault(ch.key, deque(maxlen=120))
+                    hist.append((now, r))
                 time.sleep(0.5)   # DHT22 needs spacing between reads
+            self._apply_simulated_reading()
             time.sleep(max(0, self._interval - len(self._channels) * 0.5))
+
+    def _apply_simulated_reading(self):
+        if not self._sim_target or not self._sim_source:
+            return
+
+        now = time.time()
+        cutoff = now - self._sim_delay
+        with self._lock:
+            hist = self._history.get(self._sim_source)
+            if not hist:
+                return
+
+            chosen_ts, chosen = hist[0]
+            for ts, reading in hist:
+                if ts <= cutoff:
+                    chosen_ts, chosen = ts, reading
+                else:
+                    break
+
+            simulated = Reading(chosen.temp, chosen.hum, True, now - chosen_ts)
+            self._readings[self._sim_target] = simulated
+
+        database.log_sensor(self._sim_target, simulated.temp, simulated.hum, cached=True)
 
     def snapshot(self) -> dict:
         with self._lock:

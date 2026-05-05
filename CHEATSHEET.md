@@ -126,6 +126,19 @@ Servo signal       -> Arduino signal pin
 
 Shared ground is mandatory.
 
+### DHT22 Simulation
+
+The unripe-bin DHT22 is currently simulated from the working ripe-bin DHT22:
+
+```yaml
+sensors:
+  simulate:
+    unripe_from: ripe
+    delay_seconds: 5
+```
+
+The dashboard shows the unripe reading as a delayed cached copy of the ripe reading.
+
 ### Conveyor BTS7960 / BTS7960-style board
 
 Logic side:
@@ -391,7 +404,8 @@ Timing knob:
 cycle:
   min_travel_ms: 1500
   ir_sort_delay_ms: 0
-  ir_sort_cooldown_ms: 2500
+  ir_sort_cooldown_ms: 3000
+  sort_settle_ms: 2500
   require_detection: true
 ```
 

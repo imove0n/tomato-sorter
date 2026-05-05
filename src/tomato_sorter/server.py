@@ -57,6 +57,30 @@ def create_app(detector: Detector, sensors: SensorService,
             "detections": detector.latest_detections(),
         })
 
+    @app.route("/api/analytics")
+    def api_analytics():
+        """Full persisted sorting history for the expanded analytics view."""
+        rows = database.all_detections()
+        counts = {"ripe": 0, "unripe": 0, "rotten": 0}
+        sorted_rows = 0
+        confidence_sum = 0.0
+        for row in rows:
+            cls = row.get("class")
+            if row.get("sorted_to") is not None:
+                sorted_rows += 1
+                if cls in counts:
+                    counts[cls] += 1
+            confidence_sum += float(row.get("confidence") or 0.0)
+        return jsonify({
+            "counts": counts,
+            "total": sorted_rows,
+            "detections_seen": len(rows),
+            "avg_confidence": (confidence_sum / len(rows)) if rows else None,
+            "first_timestamp": rows[0]["timestamp"] if rows else None,
+            "last_timestamp": rows[-1]["timestamp"] if rows else None,
+            "detections": rows,
+        })
+
     @app.route("/api/arduino/inbox")
     def api_arduino_inbox():
         """Diagnostic: shows last 20 messages received from Arduino."""

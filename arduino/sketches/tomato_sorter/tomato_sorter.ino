@@ -67,7 +67,7 @@ const int RELAY_ON  = LOW;      // active LOW module
 const int RELAY_OFF = HIGH;
 
 // -------------------- Timing --------------------
-const int  SERVO_SETTLE_MS     = 400;   // wait for servo to physically reach target
+const int  SERVO_SETTLE_MS     = 200;   // short safety wait between servo commands
 const unsigned long IR_DEBOUNCE_MS = 30;
 const unsigned long SERVO4_AUTO_INTERVAL_MS = 3500;  // toggle every 3.5s
 const long BAUD = 9600;
