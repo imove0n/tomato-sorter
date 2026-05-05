@@ -89,6 +89,8 @@ def create_app(detector: Detector, sensors: SensorService,
     def api_manual(action):
         if action == "gate_open":   arduino.gate_open();   STATE.update(gate_position="OPEN")
         elif action == "gate_close": arduino.gate_close(); STATE.update(gate_position="CLOSED")
+        elif action == "servo4_open":  arduino.servo4_open()
+        elif action == "servo4_close": arduino.servo4_close()
         elif action == "sort_ripe":   arduino.sort_ripe();   STATE.update(sorter_position="LEFT")
         elif action == "sort_unripe": arduino.sort_unripe(); STATE.update(sorter_position="CENTER")
         elif action == "sort_rotten": arduino.sort_rotten(); STATE.update(sorter_position="RIGHT")

@@ -71,6 +71,10 @@ class ArduinoLink:
     def gate_open(self):  self._send("SERVO1:OPEN")
     def gate_close(self): self._send("SERVO1:CLOSE")
 
+    # servo 4
+    def servo4_open(self):  self._send("SERVO4:OPEN")
+    def servo4_close(self): self._send("SERVO4:CLOSE")
+
     # sorter
     def sort_ripe(self):    self._send("SERVO2:LEFT")
     def sort_unripe(self):  self._send("SERVO2:CENTER")

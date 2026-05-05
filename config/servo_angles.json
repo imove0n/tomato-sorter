@@ -4,7 +4,8 @@
   "center": 90,
   "right": 55,
   "left": 122,
-  "servo3_open": 0,
+  "servo3_open": 90,
   "servo2_open": 0,
-  "servo2_closed": 89
+  "servo2_closed": 89,
+  "servo3_closed": 0
 }

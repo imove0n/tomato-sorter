@@ -22,12 +22,13 @@ const int  SERVO1_PIN = 9;    // gate
 const int  SERVO2_PIN = 10;   // sorter
 const long BAUD       = 9600;
 const int  GATE_CLOSED = 0;   // matches saved closed angle
+const int  SERVO2_OPEN = 0;   // keep in sync with config/servo_angles.json servo2_open
 
 Servo gate;
 Servo sorter;
 
 int gateAngle   = GATE_CLOSED;
-int sorterAngle = 90;
+int sorterAngle = SERVO2_OPEN;
 
 void setup() {
   Serial.begin(BAUD);
