@@ -75,7 +75,10 @@ class ArduinoLink:
     def servo4_open(self):  self._send("SERVO4:OPEN")
     def servo4_close(self): self._send("SERVO4:CLOSE")
 
-    # sorter
+    # sorter flap pair:
+    # ripe   -> Servo 2 closed + Servo 3 open
+    # unripe -> Servo 2 open + Servo 3 closed
+    # rotten -> Servo 2 open + Servo 3 open
     def sort_ripe(self):    self._send("SERVO2:LEFT")
     def sort_unripe(self):  self._send("SERVO2:CENTER")
     def sort_rotten(self):  self._send("SERVO2:RIGHT")

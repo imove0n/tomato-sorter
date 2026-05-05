@@ -8,6 +8,7 @@ from flask_socketio import SocketIO
 from . import database
 from .arduino_link import ArduinoLink
 from .config import SETTINGS
+from .conveyor import ConveyorController
 from .detector import Detector
 from .orchestrator import Orchestrator
 from .sensors import SensorService
@@ -15,7 +16,8 @@ from .state import STATE
 
 
 def create_app(detector: Detector, sensors: SensorService,
-               arduino: ArduinoLink, orchestrator: Orchestrator):
+               arduino: ArduinoLink, orchestrator: Orchestrator,
+               conveyor: ConveyorController):
     app = Flask(__name__,
                 template_folder="templates",
                 static_folder="static")
@@ -89,6 +91,9 @@ def create_app(detector: Detector, sensors: SensorService,
     def api_manual(action):
         if action == "gate_open":   arduino.gate_open();   STATE.update(gate_position="OPEN")
         elif action == "gate_close": arduino.gate_close(); STATE.update(gate_position="CLOSED")
+        elif action == "conveyor_forward": conveyor.forward(); STATE.update(conveyor_state="FORWARD")
+        elif action == "conveyor_reverse": conveyor.reverse(); STATE.update(conveyor_state="REVERSE")
+        elif action == "conveyor_stop": conveyor.stop(); STATE.update(conveyor_state="STOPPED")
         elif action == "servo4_open":  arduino.servo4_open()
         elif action == "servo4_close": arduino.servo4_close()
         elif action == "sort_ripe":   arduino.sort_ripe();   STATE.update(sorter_position="LEFT")

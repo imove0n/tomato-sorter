@@ -15,7 +15,7 @@
 
 const int  SERVO4_PIN = 8;
 const long BAUD       = 9600;
-const int  SERVO4_OPEN = 90;   // update after saving servo4_open
+const int  SERVO4_OPEN = 0;    // saved servo4_open
 
 Servo servo4;
 

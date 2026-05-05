@@ -136,11 +136,11 @@ def main():
                 print(f"  -> missing: {missing}")
                 continue
             if kind == "ripe":
-                print("  -> RIPE: Servo 2 CLOSED + Servo 3 OPEN")
-                send(f"B:{saved['servo2_closed']}")
+                print("  -> RIPE: Servo 3 OPEN first, then Servo 2 CLOSED")
                 send(f"C:{saved['servo3_open']}")
+                send(f"B:{saved['servo2_closed']}")
             elif kind == "unripe":
-                print("  -> UNRIPE: Servo 2 OPEN + Servo 3 CLOSED")
+                print("  -> UNRIPE: Servo 2 OPEN first, then Servo 3 CLOSED")
                 send(f"B:{saved['servo2_open']}")
                 send(f"C:{saved['servo3_closed']}")
             elif kind == "rotten":

@@ -5,9 +5,9 @@ State machine:
     IDLE          -> waiting for START
     GATE_OPEN     -> Servo 1 open, drop 1 tomato
     CONVEYOR      -> tomato traveling toward sort point, camera scans
-    SORTING       -> IR triggered, Servo 2 rotates to bin
+    SORTING       -> IR triggered, Servo 2+3 flap pair moves to class combo
     SETTLE        -> waiting for tomato to fall into bin
-    RETURN        -> Servo 2 back to center
+    RETURN        -> Servo 2+3 return to both-open rest
     -> back to GATE_OPEN
 """
 import threading
@@ -67,7 +67,7 @@ class Orchestrator:
     def _loop(self):
         try:
             self.arduino.gate_close()
-            self.arduino.sort_unripe()      # center = rest
+            self.arduino.sort_rotten()      # both flaps open = safe rest
             time.sleep(0.6)
 
             while not self._stop_evt.is_set():
@@ -123,7 +123,7 @@ class Orchestrator:
 
         # 3) Decide based on IR — Servo 2 ONLY moves if IR caught the tomato
         if not ir_caught:
-            STATE.push_event(f"IR did NOT trigger in {timeout:.0f}s — skipping sort (Servo 2 stays at center)")
+            STATE.push_event(f"IR did NOT trigger in {timeout:.0f}s — skipping sort (flaps stay open)")
             database.log_event("warning", "orchestrator",
                                f"IR timeout, no sort. Camera saw best={best_class} conf={best_conf:.2f}")
             return
@@ -150,7 +150,7 @@ class Orchestrator:
         })
         database.log_detection(best_class, best_conf, best_box, sorted_to=bin_no)
 
-        # 4) Move Servo 2 NOW (only after IR triggered)
+        # 4) Move Servo 2+3 flap pair NOW (only after IR triggered)
         if best_class == "ripe":
             self.arduino.sort_ripe()
             STATE.update(sorter_position="LEFT")
@@ -164,8 +164,8 @@ class Orchestrator:
         # 5) Hold position so tomato falls into bin
         time.sleep(self._cycle_cfg["sort_settle_ms"] / 1000.0)
 
-        # 6) Return to center (rest position)
-        if best_class != "unripe":
-            self.arduino.sort_unripe()
-            STATE.update(sorter_position="CENTER")
+        # 6) Return to both-open rest position
+        if best_class != "rotten":
+            self.arduino.sort_rotten()
+            STATE.update(sorter_position="RIGHT")
             time.sleep(0.4)

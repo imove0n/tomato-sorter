@@ -4,6 +4,7 @@ import logging
 from . import database
 from .arduino_link import ArduinoLink
 from .config import SETTINGS
+from .conveyor import ConveyorController
 from .detector import Detector
 from .orchestrator import Orchestrator
 from .sensors import SensorService
@@ -31,12 +32,16 @@ def main():
     arduino = ArduinoLink()
     arduino.start()
 
+    log.info("Starting conveyor controller...")
+    conveyor = ConveyorController()
+    conveyor.start()
+
     log.info("Initializing orchestrator...")
     orch = Orchestrator(arduino, detector)
     arduino._on_event = orch.on_ir   # route IR events into orchestrator
 
     log.info("Starting Flask server...")
-    app, sock = create_app(detector, sensors, arduino, orch)
+    app, sock = create_app(detector, sensors, arduino, orch, conveyor)
 
     cfg = SETTINGS["server"]
     sock.run(app, host=cfg["host"], port=cfg["port"],

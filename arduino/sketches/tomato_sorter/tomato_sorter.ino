@@ -25,9 +25,9 @@
  *     SERVO1:CLOSE         - gate closes
  *     SERVO4:OPEN          - servo 4 opens
  *     SERVO4:CLOSE         - servo 4 closes
- *     SERVO2:LEFT          - sort to ripe bin    (145 deg)
- *     SERVO2:CENTER        - sort to unripe bin  (95 deg)
- *     SERVO2:RIGHT         - sort to rotten bin  (50 deg)
+ *     SERVO2:LEFT          - RIPE:   Servo 2 closed + Servo 3 open
+ *     SERVO2:CENTER        - UNRIPE: Servo 2 open + Servo 3 closed
+ *     SERVO2:RIGHT         - ROTTEN: Servo 2 open + Servo 3 open
  *     RELAY1:ON | OFF      - fan 1
  *     RELAY2:ON | OFF      - fan 2
  *     PING                 - returns PONG
@@ -56,14 +56,13 @@ const int  RELAY2_PIN = 7;      // fan 2
 // -------------------- Calibrated angles (from config/servo_angles.json)
 const int GATE_CLOSED   = 0;
 const int GATE_OPEN     = 50;
-const int SERVO4_CLOSED = 0;    // update from servo4_closed after calibration
-const int SERVO4_OPEN   = 90;   // update from servo4_open after calibration
+const int SERVO4_CLOSED = 95;   // saved servo4_closed
+const int SERVO4_OPEN   = 0;    // saved servo4_open
 
-const int SORT_LEFT     = 122;  // ripe
-const int SORT_CENTER   = 90;   // unripe
-const int SORT_RIGHT    = 55;   // rotten
-const int SORT_OPEN     = 0;    // saved servo2_open startup/rest position
-const int SORT3_OPEN    = 90;   // saved servo3_open startup/rest position
+const int SORT2_OPEN    = 0;    // saved servo2_open
+const int SORT2_CLOSED  = 89;   // saved servo2_closed
+const int SORT3_OPEN    = 90;   // saved servo3_open
+const int SORT3_CLOSED  = 0;    // saved servo3_closed
 
 // -------------------- Relay polarity --------------------
 const int RELAY_ON  = LOW;      // active LOW module
@@ -82,7 +81,7 @@ Servo sorter3;
 Servo servo4;
 
 int  gateAngle    = GATE_CLOSED;
-int  sorterAngle  = SORT_OPEN;
+int  sorterAngle  = SORT2_OPEN;
 int  sorter3Angle = SORT3_OPEN;
 int  servo4Angle  = SERVO4_OPEN;
 bool relay1On     = true;       // default ON at boot
@@ -106,6 +105,32 @@ void moveSorter(int deg) {
   sorterAngle = deg;
   delay(SERVO_SETTLE_MS);
   Serial.println("SERVO2:DONE");
+}
+
+void moveSorter3(int deg) {
+  sorter3.write(deg);
+  sorter3Angle = deg;
+  delay(SERVO_SETTLE_MS);
+  Serial.println("SERVO3:DONE");
+}
+
+void moveFlapsSafe(int s2Target, int s3Target) {
+  // Mechanical rule: Servo 2 and Servo 3 must never both be closed.
+  if (s2Target == SORT2_CLOSED && s3Target == SORT3_CLOSED) {
+    Serial.println("ERROR:INVALID_FLAP_COMBO");
+    return;
+  }
+
+  if (s2Target == SORT2_CLOSED) {
+    moveSorter3(SORT3_OPEN);
+    moveSorter(s2Target);
+  } else if (s3Target == SORT3_CLOSED) {
+    moveSorter(SORT2_OPEN);
+    moveSorter3(s3Target);
+  } else {
+    moveSorter(SORT2_OPEN);
+    moveSorter3(SORT3_OPEN);
+  }
 }
 
 void moveServo4(int deg) {
@@ -152,7 +177,7 @@ void setup() {
   sorter3.attach(SERVO3_PIN);
   servo4.attach(SERVO4_PIN);
   gate.write(GATE_CLOSED);
-  sorter.write(SORT_OPEN);
+  sorter.write(SORT2_OPEN);
   sorter3.write(SORT3_OPEN);
   servo4.write(SERVO4_OPEN);
   delay(SERVO_SETTLE_MS);
@@ -184,10 +209,10 @@ void handleSerial() {
   else if (cmd == "SERVO4:OPEN")  moveServo4(SERVO4_OPEN);
   else if (cmd == "SERVO4:CLOSE") moveServo4(SERVO4_CLOSED);
 
-  // Servo 2 (sorter)
-  else if (cmd == "SERVO2:LEFT")   moveSorter(SORT_LEFT);
-  else if (cmd == "SERVO2:CENTER") moveSorter(SORT_CENTER);
-  else if (cmd == "SERVO2:RIGHT")  moveSorter(SORT_RIGHT);
+  // Servo 2 + 3 sorter flap pair. Never command both closed.
+  else if (cmd == "SERVO2:LEFT")   moveFlapsSafe(SORT2_CLOSED, SORT3_OPEN);   // ripe
+  else if (cmd == "SERVO2:CENTER") moveFlapsSafe(SORT2_OPEN, SORT3_CLOSED);   // unripe
+  else if (cmd == "SERVO2:RIGHT")  moveFlapsSafe(SORT2_OPEN, SORT3_OPEN);     // rotten/rest
 
   // Relays
   else if (cmd == "RELAY1:ON")  setRelay1(true);

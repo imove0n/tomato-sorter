@@ -39,6 +39,11 @@ arduino:
   baud: 9600
   timeout: 1.0
 
+# --- Conveyor (BTS7960 via Pi GPIO) ---------------------------
+conveyor:
+  rpwm_gpio_pin: 18    # physical pin 12
+  lpwm_gpio_pin: 19    # physical pin 35
+
 # --- Sort cycle timing (milliseconds) -------------------------
 cycle:
   gate_open_hold_ms:    300    # how long Servo 1 stays open per drop

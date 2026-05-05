@@ -362,7 +362,7 @@
 
     <div class="panel-title">System Status</div>
     <div class="status-grid">
-      <div class="status-item"><span class="label">Conveyor</span><span class="val on">RUNNING</span></div>
+      <div class="status-item"><span class="label">Conveyor</span><span class="val" id="conveyor-val">STOPPED</span></div>
       <div class="status-item"><span class="label">IR Sensor</span><span class="val" id="ir-val">CLEAR</span></div>
       <div class="status-item"><span class="label">Fan 1</span><span class="val" id="fan1-val">ON</span></div>
       <div class="status-item"><span class="label">Fan 2</span><span class="val" id="fan2-val">ON</span></div>
@@ -388,6 +388,9 @@
     <div class="manual-controls">
       <button class="manual-btn" data-action="gate_open">Gate Open</button>
       <button class="manual-btn" data-action="gate_close">Gate Close</button>
+      <button class="manual-btn" data-action="conveyor_forward">Conveyor Fwd</button>
+      <button class="manual-btn" data-action="conveyor_reverse">Conveyor Rev</button>
+      <button class="manual-btn" data-action="conveyor_stop">Conveyor Stop</button>
       <button class="manual-btn" data-action="servo4_open">Servo 4 Open</button>
       <button class="manual-btn" data-action="servo4_close">Servo 4 Close</button>
       <button class="manual-btn" data-action="sort_ripe">Sort Ripe</button>
@@ -457,6 +460,8 @@
     const irEl = $("ir-val");
     irEl.textContent = s.ir;
     irEl.className = "val " + (s.ir === "TRIGGERED" ? "triggered" : "off");
+    $("conveyor-val").textContent = s.conveyor || "STOPPED";
+    $("conveyor-val").className = "val " + ((s.conveyor || "STOPPED") === "STOPPED" ? "off" : "on");
     $("fan1-val").textContent = s.fan1_on ? "ON"  : "OFF";
     $("fan1-val").className   = "val "  + (s.fan1_on ? "on" : "off");
     $("fan2-val").textContent = s.fan2_on ? "ON"  : "OFF";

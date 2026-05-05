@@ -13,6 +13,7 @@ class SystemState:
         self.cycle_running = False        # auto sort cycle ON/OFF
         self.fan1_on = True
         self.fan2_on = True
+        self.conveyor_state = "STOPPED"
         self.gate_position = "CLOSED"     # CLOSED / OPEN
         self.sorter_position = "CENTER"   # LEFT / CENTER / RIGHT
         self.ir_state = "CLEAR"
@@ -43,6 +44,7 @@ class SystemState:
                 "cycle_running":  self.cycle_running,
                 "fan1_on":        self.fan1_on,
                 "fan2_on":        self.fan2_on,
+                "conveyor":       self.conveyor_state,
                 "gate":           self.gate_position,
                 "sorter":         self.sorter_position,
                 "ir":             self.ir_state,
