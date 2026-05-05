@@ -37,7 +37,7 @@ def main():
     conveyor.start()
 
     log.info("Initializing orchestrator...")
-    orch = Orchestrator(arduino, detector)
+    orch = Orchestrator(arduino, detector, conveyor)
     arduino._on_event = orch.on_ir   # route IR events into orchestrator
 
     log.info("Starting Flask server...")

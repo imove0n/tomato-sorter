@@ -14,8 +14,8 @@ class SystemState:
         self.fan1_on = True
         self.fan2_on = True
         self.conveyor_state = "STOPPED"
-        self.gate_position = "CLOSED"     # CLOSED / OPEN
-        self.sorter_position = "CENTER"   # LEFT / CENTER / RIGHT
+        self.gate_position = "DISABLED"
+        self.sorter_position = "RIGHT"    # rest = both flaps open
         self.ir_state = "CLEAR"
         self.last_event = ""
         self.last_event_ts = 0.0

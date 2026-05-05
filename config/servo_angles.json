@@ -8,6 +8,6 @@
   "servo2_open": 0,
   "servo2_closed": 89,
   "servo3_closed": 0,
-  "servo4_open": 0,
-  "servo4_closed": 95
+  "servo4_open": 75,
+  "servo4_closed": 0
 }

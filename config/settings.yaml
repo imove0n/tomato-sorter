@@ -46,10 +46,13 @@ conveyor:
 
 # --- Sort cycle timing (milliseconds) -------------------------
 cycle:
-  gate_open_hold_ms:    300    # how long Servo 1 stays open per drop
-  min_travel_ms:        1500   # ignore IR triggers before this — tomato can't reach IR yet
+  gate_open_hold_ms:    300    # legacy: Servo 1 is disabled, kept only for backward compatibility
+  min_travel_ms:        1500   # ignore early IR triggers after each cycle starts
+  ir_sort_delay_ms:     0      # delay after accepted IR trigger before moving Servo 2/3
+  ir_sort_cooldown_ms:  2500   # ignore repeat IR triggers after a sort
+  require_detection:    true   # IR alone will not sort; camera must see a tomato
   conveyor_travel_ms:   6000   # max time tomato can be on conveyor before timeout
-  sort_settle_ms:       2500   # hold sort position so tomato fully falls into bin
+  sort_settle_ms:       1500   # hold sort flap deflected so tomato falls into bin, then return to both-OPEN rest
   rest_between_ms:      300    # idle between cycles
   fallback_class: "unripe"     # if no detection by IR trigger, default to this
 

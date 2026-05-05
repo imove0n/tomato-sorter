@@ -1,0 +1,21 @@
+[Unit]
+Description=Tomato Sorter v2.0 — backend + dashboard
+After=network-online.target dev-ttyUSB0.device
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bacadasa
+Group=bacadasa
+SupplementaryGroups=dialout video gpio spi i2c
+WorkingDirectory=/home/bacadasa/tomato-sorter
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/home/bacadasa/tomato-sorter/src
+ExecStart=/home/bacadasa/tomato-sorter/.venv/bin/python -m tomato_sorter.main
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/bacadasa/tomato-sorter/data/logs/service.log
+StandardError=append:/home/bacadasa/tomato-sorter/data/logs/service.log
+
+[Install]
+WantedBy=multi-user.target

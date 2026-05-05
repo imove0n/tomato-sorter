@@ -77,6 +77,13 @@ def create_app(detector: Detector, sensors: SensorService,
         orchestrator.stop()
         return jsonify(ok=True)
 
+    @app.route("/api/debug/ir_trigger", methods=["POST"])
+    def api_debug_ir_trigger():
+        """Debug-only: simulate an IR:TRIGGERED message from the Arduino.
+        Lets us test the camera→IR→servo pipeline without working IR hardware."""
+        orchestrator.simulate_ir_trigger()
+        return jsonify(ok=True, simulated=True)
+
     @app.route("/api/reset", methods=["POST"])
     def api_reset():
         """Wipe all bin counts, timeline, and history. Use before a fresh demo."""
@@ -89,9 +96,7 @@ def create_app(detector: Detector, sensors: SensorService,
 
     @app.route("/api/manual/<action>", methods=["POST"])
     def api_manual(action):
-        if action == "gate_open":   arduino.gate_open();   STATE.update(gate_position="OPEN")
-        elif action == "gate_close": arduino.gate_close(); STATE.update(gate_position="CLOSED")
-        elif action == "conveyor_forward": conveyor.forward(); STATE.update(conveyor_state="FORWARD")
+        if action == "conveyor_forward": conveyor.forward(); STATE.update(conveyor_state="FORWARD")
         elif action == "conveyor_reverse": conveyor.reverse(); STATE.update(conveyor_state="REVERSE")
         elif action == "conveyor_stop": conveyor.stop(); STATE.update(conveyor_state="STOPPED")
         elif action == "servo4_open":  arduino.servo4_open()
@@ -103,6 +108,7 @@ def create_app(detector: Detector, sensors: SensorService,
         elif action == "fan1_off": arduino.relay1(False); STATE.update(fan1_on=False)
         elif action == "fan2_on":  arduino.relay2(True);  STATE.update(fan2_on=True)
         elif action == "fan2_off": arduino.relay2(False); STATE.update(fan2_on=False)
+        elif action == "arduino_status": arduino.status()
         else:
             return jsonify(ok=False, error="unknown action"), 400
         STATE.push_event(f"Manual: {action}")

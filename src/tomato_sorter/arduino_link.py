@@ -67,13 +67,36 @@ class ArduinoLink:
             self._ser.write((cmd + "\n").encode())
             self._ser.flush()
 
-    # gate
-    def gate_open(self):  self._send("SERVO1:OPEN")
-    def gate_close(self): self._send("SERVO1:CLOSE")
+    # Servo 1 is retired from the system. Keep these as safe no-ops so
+    # any stale caller will not move old hardware.
+    def gate_open(self):
+        return
+
+    def gate_close(self):
+        return
 
     # servo 4
-    def servo4_open(self):  self._send("SERVO4:OPEN")
-    def servo4_close(self): self._send("SERVO4:CLOSE")
+    def servo4_open(self):     self._send("SERVO4:OPEN")
+    def servo4_close(self):    self._send("SERVO4:CLOSE")
+    def servo4_auto_on(self):  self._send("SERVO4:AUTO_ON")
+    def servo4_auto_off(self): self._send("SERVO4:AUTO_OFF")
+
+    def home_all(self):
+        """
+        Reset hardware to default rest pose:
+          - Servo 4 -> CLOSED, then auto-oscillator armed
+          - Servo 2 + 3 -> both OPEN (rotten/rest combo)
+        Called at the very start of every sort cycle to guarantee a clean,
+        synchronized state regardless of what was running before.
+        """
+        # Stop oscillation, force CLOSED rest
+        self.servo4_auto_off()
+        time.sleep(0.05)
+        self.servo4_close()
+
+        # Ensure Servo 2+3 are both OPEN (rest combo). Firmware enforces
+        # the "never both closed" rule internally.
+        self.sort_rotten()
 
     # sorter flap pair:
     # ripe   -> Servo 2 closed + Servo 3 open
