@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tomato Sorter Kiosk
+GenericName=Dashboard
+Comment=Launch the Tomato Sorter dashboard in fullscreen kiosk mode
+Exec=/home/bacadasa/tomato-sorter/deploy/kiosk-autostart.sh
+Icon=/usr/share/icons/hicolor/128x128/apps/chromium.png
+Terminal=false
+Categories=Utility;System;
+StartupNotify=true

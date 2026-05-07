@@ -31,13 +31,21 @@ fi
 
 # Launch Chromium in kiosk mode. --noerrdialogs/--disable-* keep it clean
 # for thesis defense — no popups, no prompts.
+#
+# --password-store=basic        skips the system keyring → no unlock password
+#                               prompt on every boot
+# --disable-features=...        suppresses extra prompts/notifications
 exec /usr/bin/chromium \
     --kiosk \
     --noerrdialogs \
     --disable-infobars \
     --disable-translate \
-    --disable-features=TranslateUI \
+    --disable-features=TranslateUI,InfiniteSessionRestore \
     --no-first-run \
+    --no-default-browser-check \
+    --password-store=basic \
+    --disable-restore-session-state \
+    --disable-session-crashed-bubble \
     --start-maximized \
     --autoplay-policy=no-user-gesture-required \
     --check-for-update-interval=31536000 \
