@@ -24,6 +24,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable tomato-sorter.service
 sudo systemctl restart tomato-sorter.service
 
+echo "==> Installing sudoers rule for dashboard Shutdown/Reboot buttons…"
+sudo cp "$PROJECT_DIR/deploy/tomato-sorter-sudoers" /etc/sudoers.d/tomato-sorter
+sudo chmod 0440 /etc/sudoers.d/tomato-sorter
+sudo visudo -c -f /etc/sudoers.d/tomato-sorter
+
 echo "==> Verifying labwc kiosk autostart…"
 mkdir -p "$(dirname "$LABWC_AUTOSTART")"
 if ! grep -q "kiosk-autostart.sh" "$LABWC_AUTOSTART" 2>/dev/null; then

@@ -1,0 +1,9 @@
+# Allow the tomato-sorter service (running as user 'bacadasa') to power
+# off / reboot the Pi without a password prompt — needed for the
+# dashboard's Shutdown / Reboot buttons.
+#
+# Install with:  sudo cp deploy/tomato-sorter-sudoers /etc/sudoers.d/tomato-sorter
+#                sudo chmod 0440 /etc/sudoers.d/tomato-sorter
+#
+# Restricted to two specific binaries — no shell escape risk.
+bacadasa ALL=(root) NOPASSWD: /sbin/poweroff, /sbin/reboot

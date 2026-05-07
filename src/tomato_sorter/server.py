@@ -1,4 +1,5 @@
 """Flask + SocketIO web server for the SCADA dashboard."""
+import subprocess
 import threading
 import time
 
@@ -100,6 +101,37 @@ def create_app(detector: Detector, sensors: SensorService,
     def api_stop():
         orchestrator.stop()
         return jsonify(ok=True)
+
+    @app.route("/api/system/shutdown", methods=["POST"])
+    def api_system_shutdown():
+        """Power off the Pi cleanly. Service tearings happen via systemd."""
+        STATE.push_event("System SHUTDOWN requested from dashboard")
+        # Schedule the shutdown a beat later so this HTTP response can return.
+        threading.Thread(
+            target=lambda: (time.sleep(1), subprocess.Popen(["sudo", "/sbin/poweroff"])),
+            daemon=True,
+        ).start()
+        return jsonify(ok=True, action="shutdown")
+
+    @app.route("/api/system/reboot", methods=["POST"])
+    def api_system_reboot():
+        STATE.push_event("System REBOOT requested from dashboard")
+        threading.Thread(
+            target=lambda: (time.sleep(1), subprocess.Popen(["sudo", "/sbin/reboot"])),
+            daemon=True,
+        ).start()
+        return jsonify(ok=True, action="reboot")
+
+    @app.route("/api/system/exit_kiosk", methods=["POST"])
+    def api_system_exit_kiosk():
+        """Close Chromium so the user lands back on the Pi desktop.
+        Backend keeps running — they can still come back via browser."""
+        STATE.push_event("Exiting kiosk — Chromium closing")
+        threading.Thread(
+            target=lambda: (time.sleep(0.5), subprocess.Popen(["pkill", "-f", "chromium"])),
+            daemon=True,
+        ).start()
+        return jsonify(ok=True, action="exit_kiosk")
 
     @app.route("/api/debug/ir_trigger", methods=["POST"])
     def api_debug_ir_trigger():

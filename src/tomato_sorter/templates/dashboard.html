@@ -414,6 +414,28 @@
   .start-btn:hover, .stop-btn:hover { transform: translateY(-1px); }
   .start-btn:disabled, .stop-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
+  /* System buttons (shutdown / reboot / exit kiosk) — top-right cluster */
+  .sys-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .sys-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .sys-btn:hover  { background: var(--panel-2); color: var(--text); border-color: var(--text-dim); }
+  .sys-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
   .manual-controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
   .manual-btn {
     background: var(--panel-2);
@@ -448,7 +470,12 @@
 
 <header>
   <h1>TOMATO SORTER <span>v2.0</span> — CONTROL DASHBOARD</h1>
-  <div class="status-pill" id="cycle-status"><span class="dot"></span><span id="cycle-status-text">IDLE</span></div>
+  <div class="sys-controls">
+    <div class="status-pill" id="cycle-status"><span class="dot"></span><span id="cycle-status-text">IDLE</span></div>
+    <button class="sys-btn"        id="exit-kiosk-btn" title="Exit kiosk and return to Pi desktop">Exit Kiosk</button>
+    <button class="sys-btn"        id="reboot-btn"     title="Reboot the Raspberry Pi">Reboot</button>
+    <button class="sys-btn danger" id="shutdown-btn"   title="Power off the Raspberry Pi">Shutdown</button>
+  </div>
 </header>
 
 <main>
@@ -693,6 +720,23 @@
   });
   document.querySelectorAll(".manual-btn").forEach(b => {
     b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
+  });
+
+  // System controls
+  $("shutdown-btn").addEventListener("click", () => {
+    if (confirm("Shut down the Raspberry Pi? The dashboard will go offline.")) {
+      fetch("/api/system/shutdown", {method: "POST"});
+    }
+  });
+  $("reboot-btn").addEventListener("click", () => {
+    if (confirm("Reboot the Raspberry Pi? The dashboard will be unavailable for ~30 seconds.")) {
+      fetch("/api/system/reboot", {method: "POST"});
+    }
+  });
+  $("exit-kiosk-btn").addEventListener("click", () => {
+    if (confirm("Exit kiosk mode and return to the Pi desktop?\n(The backend stays running. Open a browser to localhost:5000 anytime to come back.)")) {
+      fetch("/api/system/exit_kiosk", {method: "POST"});
+    }
   });
 
   function renderAnalytics(data) {
