@@ -48,7 +48,19 @@ def create_app(detector: Detector, sensors: SensorService,
         snap["sensors"]  = sensors.snapshot()
         snap["recent"]   = database.recent_detections(10)
         snap["live_detections"] = detector.latest_detections()
+        snap["conveyor_speed"]  = conveyor.speed_percent()
         return jsonify(snap)
+
+    @app.route("/api/conveyor/speed", methods=["POST"])
+    def api_conveyor_speed():
+        try:
+            data = request.get_json(force=True, silent=True) or {}
+            percent = float(data.get("percent", 100))
+        except (ValueError, TypeError):
+            return jsonify(ok=False, error="invalid percent"), 400
+        conveyor.set_speed(percent)
+        STATE.push_event(f"Conveyor speed set to {conveyor.speed_percent():.0f}%")
+        return jsonify(ok=True, speed=conveyor.speed_percent())
 
     @app.route("/api/detections")
     def api_detections():
@@ -174,9 +186,10 @@ def create_app(detector: Detector, sensors: SensorService,
     def broadcast_loop():
         while True:
             snap = STATE.snapshot()
-            snap["fps"]     = round(detector.fps(), 1)
-            snap["sensors"] = sensors.snapshot()
-            snap["recent"]  = database.recent_detections(10)
+            snap["fps"]            = round(detector.fps(), 1)
+            snap["sensors"]        = sensors.snapshot()
+            snap["recent"]         = database.recent_detections(10)
+            snap["conveyor_speed"] = conveyor.speed_percent()
             sock.emit("state", snap)
             time.sleep(0.5)
 

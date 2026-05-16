@@ -436,6 +436,67 @@
   .sys-btn:hover  { background: var(--panel-2); color: var(--text); border-color: var(--text-dim); }
   .sys-btn.danger:hover { border-color: var(--red); color: var(--red); }
 
+  /* Conveyor speed panel */
+  .speed-panel {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .speed-gauge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .speed-bar {
+    flex: 1;
+    height: 16px;
+    background: #0b0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .speed-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--green), var(--orange), var(--red));
+    transition: width 0.2s ease;
+  }
+  .speed-readout {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 70px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .speed-slider {
+    width: 100%;
+    accent-color: var(--orange);
+    cursor: pointer;
+  }
+  .speed-presets {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    justify-content: space-between;
+  }
+  .speed-preset {
+    flex: 1;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 0;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .speed-preset:hover { background: var(--panel); color: var(--text); border-color: var(--text-dim); }
+
   .manual-controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
   .manual-btn {
     background: var(--panel-2);
@@ -538,6 +599,22 @@
       <div class="status-item"><span class="label">Sorter</span><span class="val" id="sorter-val">RIGHT</span></div>
       <div class="status-item"><span class="label">FPS</span><span class="val" id="fps-val">0.0</span></div>
       <div class="status-item"><span class="label">Total</span><span class="val" id="total-val">0</span></div>
+    </div>
+
+    <div class="panel-title">Conveyor Speed</div>
+    <div class="speed-panel">
+      <div class="speed-gauge">
+        <div class="speed-bar"><div class="speed-fill" id="speed-fill"></div></div>
+        <div class="speed-readout"><span id="speed-val">100</span>%</div>
+      </div>
+      <input type="range" min="0" max="100" step="1" value="100"
+             class="speed-slider" id="speed-slider" />
+      <div class="speed-presets">
+        <button class="speed-preset" data-speed="0">0%</button>
+        <button class="speed-preset" data-speed="30">30%</button>
+        <button class="speed-preset" data-speed="60">60%</button>
+        <button class="speed-preset" data-speed="100">100%</button>
+      </div>
     </div>
 
     <div class="panel-title-row">
@@ -686,6 +763,14 @@
     $("fps-val").textContent    = (s.fps || 0).toFixed(1);
     $("last-event").textContent = s.last_event || "—";
 
+    // Conveyor speed gauge + slider (don't fight the user while they're dragging)
+    if (typeof s.conveyor_speed === "number" && !speedSliderDragging) {
+      const pct = Math.round(s.conveyor_speed);
+      $("speed-fill").style.width = pct + "%";
+      $("speed-val").textContent  = pct;
+      $("speed-slider").value     = pct;
+    }
+
     // Timeline
     const tl = $("timeline");
     if (s.timeline.length === 0) {
@@ -720,6 +805,43 @@
   });
   document.querySelectorAll(".manual-btn").forEach(b => {
     b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
+  });
+
+  // Conveyor speed slider — throttled POST while dragging, immediate POST on release
+  let speedSliderDragging = false;
+  let speedThrottleTimer  = null;
+  function postSpeed(pct) {
+    fetch("/api/conveyor/speed", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({percent: pct}),
+    });
+  }
+  $("speed-slider").addEventListener("input", (e) => {
+    speedSliderDragging = true;
+    const pct = parseInt(e.target.value, 10);
+    $("speed-fill").style.width = pct + "%";
+    $("speed-val").textContent  = pct;
+    // Throttle network calls to 1 every 80ms while dragging
+    if (!speedThrottleTimer) {
+      speedThrottleTimer = setTimeout(() => {
+        postSpeed(parseInt($("speed-slider").value, 10));
+        speedThrottleTimer = null;
+      }, 80);
+    }
+  });
+  $("speed-slider").addEventListener("change", (e) => {
+    speedSliderDragging = false;
+    postSpeed(parseInt(e.target.value, 10));
+  });
+  document.querySelectorAll(".speed-preset").forEach(b => {
+    b.addEventListener("click", () => {
+      const pct = parseInt(b.dataset.speed, 10);
+      $("speed-slider").value = pct;
+      $("speed-fill").style.width = pct + "%";
+      $("speed-val").textContent  = pct;
+      postSpeed(pct);
+    });
   });
 
   // System controls
