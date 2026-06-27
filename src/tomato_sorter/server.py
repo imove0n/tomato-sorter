@@ -6,7 +6,7 @@ import time
 from flask import Flask, Response, jsonify, render_template, request
 from flask_socketio import SocketIO
 
-from . import database
+from . import database, network_info
 from .arduino_link import ArduinoLink
 from .config import SETTINGS
 from .conveyor import ConveyorController
@@ -14,6 +14,10 @@ from .detector import Detector
 from .orchestrator import Orchestrator
 from .sensors import SensorService
 from .state import STATE
+
+# Hotspot creds (used by the WiFi-join QR). Match deploy/hotspot-on.sh.
+HOTSPOT_SSID     = "TomatoSorter"
+HOTSPOT_PASSWORD = "tomato123"
 
 
 def create_app(detector: Detector, sensors: SensorService,
@@ -113,6 +117,24 @@ def create_app(detector: Detector, sensors: SensorService,
     def api_stop():
         orchestrator.stop()
         return jsonify(ok=True)
+
+    @app.route("/api/network")
+    def api_network():
+        """Network info + QR codes for phone access."""
+        info = network_info.network_summary()
+        # Pick the best URL to send the phone to:
+        #   - Hostname (raspberrypi.local) if mDNS works (more portable)
+        #   - Fall back to IP otherwise
+        best_url = info["urls"].get("hostname") or info["urls"].get("ip") or ""
+
+        info["qr_dashboard"] = network_info.make_qr_png_base64(best_url) if best_url else None
+        # Always offer a WiFi-join QR for the hotspot — phones can scan it
+        # to auto-connect even if the hotspot isn't running yet (no harm).
+        info["qr_wifi"]   = network_info.make_wifi_join_qr(HOTSPOT_SSID, HOTSPOT_PASSWORD)
+        info["hotspot_ssid"]     = HOTSPOT_SSID
+        info["hotspot_password"] = HOTSPOT_PASSWORD
+        info["best_url"]         = best_url
+        return jsonify(info)
 
     @app.route("/api/system/shutdown", methods=["POST"])
     def api_system_shutdown():
