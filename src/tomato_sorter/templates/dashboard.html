@@ -198,6 +198,58 @@
   }
   .camera-link:hover { color: var(--text); border-color: var(--text-dim); }
 
+  /* Fullscreen camera viewer overlay (toggled from the dashboard) */
+  .cam-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .cam-overlay.open { display: flex; }
+  .cam-overlay img {
+    max-width: 100%;
+    max-height: calc(100vh - 60px);
+    object-fit: contain;
+  }
+  .cam-overlay-bar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+  }
+  .cam-overlay-btn {
+    background: rgba(15, 20, 25, 0.85);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    backdrop-filter: blur(8px);
+  }
+  .cam-overlay-btn:hover { background: var(--panel); border-color: var(--text-dim); }
+  .cam-overlay-btn.close:hover { border-color: var(--red); color: var(--red); }
+  .cam-overlay-hint {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
   /* Right column */
   .sidebar { display: flex; flex-direction: column; }
 
@@ -549,9 +601,18 @@
       <div class="detection-conf" id="det-conf">—</div>
       <div class="detection-bar"><div class="detection-bar-fill" id="det-bar"></div></div>
       <div class="detection-fps">FPS: <span id="det-fps">0.0</span></div>
-      <a href="/stream" target="_blank" class="camera-link">Open camera viewer in new tab →</a>
+      <button type="button" id="cam-open-btn" class="camera-link" style="cursor:pointer;background:transparent;">View Live Camera →</button>
     </div>
   </section>
+
+  <!-- Fullscreen camera overlay -->
+  <div class="cam-overlay" id="cam-overlay" role="dialog" aria-label="Live camera viewer">
+    <div class="cam-overlay-bar">
+      <button class="cam-overlay-btn close" id="cam-close-btn">✕ Close</button>
+    </div>
+    <img id="cam-overlay-img" alt="Live camera stream" />
+    <div class="cam-overlay-hint">Press ESC or click Close to return</div>
+  </div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -805,6 +866,25 @@
   });
   document.querySelectorAll(".manual-btn").forEach(b => {
     b.addEventListener("click", () => fetch(`/api/manual/${b.dataset.action}`, {method: "POST"}));
+  });
+
+  // Camera fullscreen overlay
+  const camOverlay = $("cam-overlay");
+  const camImg     = $("cam-overlay-img");
+  function openCamera() {
+    // Reset src each time so MJPEG stream restarts cleanly
+    camImg.src = "/stream?t=" + Date.now();
+    camOverlay.classList.add("open");
+  }
+  function closeCamera() {
+    camOverlay.classList.remove("open");
+    // Drop the stream so the browser closes the connection (saves bandwidth/CPU)
+    camImg.src = "";
+  }
+  $("cam-open-btn").addEventListener("click",  openCamera);
+  $("cam-close-btn").addEventListener("click", closeCamera);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && camOverlay.classList.contains("open")) closeCamera();
   });
 
   // Conveyor speed slider — throttled POST while dragging, immediate POST on release
