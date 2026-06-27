@@ -681,7 +681,8 @@
   <h1>TOMATO SORTER <span>v2.0</span> — CONTROL DASHBOARD</h1>
   <div class="sys-controls">
     <div class="status-pill" id="cycle-status"><span class="dot"></span><span id="cycle-status-text">IDLE</span></div>
-    <button class="sys-btn"        id="phone-btn"      title="Show QR codes to connect a phone">📱 Phone Access</button>
+    <button class="sys-btn"        id="phone-btn"      title="Show QR codes to connect a phone (LAN / Hotspot)">📱 Phone Access</button>
+    <button class="sys-btn"        id="tunnel-btn"     title="Show the public internet URL (Cloudflare tunnel)">🌐 Internet URL</button>
     <button class="sys-btn"        id="exit-kiosk-btn" title="Exit kiosk and return to Pi desktop">Exit Kiosk</button>
     <button class="sys-btn"        id="reboot-btn"     title="Reboot the Raspberry Pi">Reboot</button>
     <button class="sys-btn danger" id="shutdown-btn"   title="Power off the Raspberry Pi">Shutdown</button>
@@ -737,16 +738,33 @@
       </div>
 
       <div class="phone-hotspot-status" id="phone-hotspot-status">Hotspot: checking…</div>
+    </div>
+  </div>
 
-      <div style="margin:24px 0 8px 0;color:var(--text);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Anywhere on the Internet (Public Tunnel)</div>
+  <!-- Internet URL modal — dedicated to the Cloudflare public tunnel -->
+  <div class="phone-overlay" id="tunnel-overlay" role="dialog" aria-label="Public internet URL">
+    <div class="phone-modal" style="max-width:640px;">
+      <button class="close-x" id="tunnel-close-btn">✕ Close</button>
+      <h2>🌐 Public Internet URL</h2>
+      <div class="sub">Share the dashboard with anyone, anywhere via this Cloudflare tunnel URL.</div>
+
       <div class="phone-cards" style="grid-template-columns:1fr;">
-        <div class="phone-card" id="tunnel-card">
-          <h3>🌐 Public Dashboard URL</h3>
-          <div class="hint">Cloudflare quick tunnel — works from any internet connection, no need to join the Pi's WiFi.</div>
-          <img id="qr-tunnel" alt="Public tunnel QR code" style="display:none;" />
-          <div class="kv" style="margin-top:14px;font-size:13px;"><span>URL:</span> <b id="phone-tunnel-url" style="word-break:break-all;">—</b></div>
-          <div id="tunnel-msg" class="hint" style="margin-top:14px;color:var(--text-dim);">Loading tunnel status…</div>
+        <div class="phone-card">
+          <h3>Scan or share this URL</h3>
+          <div class="hint">Works from any device with internet — no need to be on the same WiFi.</div>
+          <img id="qr-tunnel-big" alt="Public tunnel QR code" style="display:none;max-width:260px;" />
+          <div id="tunnel-url-display" style="margin-top:16px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-family:'Courier New',monospace;font-size:13px;color:var(--text);word-break:break-all;text-align:center;">—</div>
+          <button id="tunnel-copy-btn"
+                  style="margin-top:10px;background:transparent;color:var(--text-dim);border:1px solid var(--border);padding:6px 14px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1px;display:none;">
+            📋 Copy URL
+          </button>
+          <div id="tunnel-status-big" class="hint" style="margin-top:14px;color:var(--text-dim);font-size:12px;">Checking tunnel status…</div>
         </div>
+      </div>
+
+      <div style="margin-top:18px;padding:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text-dim);line-height:1.6;">
+        <b style="color:var(--text);">⚠️ Reminder:</b> The Pi must be connected to the internet for this URL to work.
+        The URL <b>changes every time the tunnel restarts</b>. If it's not active, ask Herson to enable it.
       </div>
     </div>
   </div>
@@ -1019,26 +1037,6 @@
       $("phone-url").textContent      = n.best_url || "—";
       $("phone-hostname").textContent = n.hostname ? (n.hostname + ".local") : "—";
 
-      // Tunnel (public URL) card
-      const qrTunnel = $("qr-tunnel");
-      const tunnelMsg = $("tunnel-msg");
-      if (n.qr_tunnel && n.tunnel_url) {
-        qrTunnel.src = n.qr_tunnel;
-        qrTunnel.style.display = "block";
-        $("phone-tunnel-url").textContent = n.tunnel_url;
-        tunnelMsg.textContent = n.tunnel ? "✓ Tunnel ACTIVE — anyone can open this URL right now" : "URL found but service not active";
-        tunnelMsg.style.color = n.tunnel ? "var(--green)" : "var(--orange)";
-      } else if (n.tunnel) {
-        qrTunnel.style.display = "none";
-        $("phone-tunnel-url").textContent = "starting…";
-        tunnelMsg.textContent = "Tunnel service running but URL not assigned yet — try again in 5–10 seconds.";
-        tunnelMsg.style.color = "var(--orange)";
-      } else {
-        qrTunnel.style.display = "none";
-        $("phone-tunnel-url").textContent = "—";
-        tunnelMsg.innerHTML = "Tunnel service not running.<br><span style='font-size:11px;color:var(--text-dim);'>Enable with:</span> <code>sudo systemctl enable --now tomato-tunnel</code>";
-        tunnelMsg.style.color = "var(--text-dim)";
-      }
       const statusEl = $("phone-hotspot-status");
       if (n.hotspot) {
         statusEl.textContent = `✓ Hotspot ACTIVE — phones can join "${n.ssid || n.hotspot_ssid}" now`;
@@ -1058,6 +1056,66 @@
   phoneOverlay.addEventListener("click", (e) => { if (e.target === phoneOverlay) closePhoneAccess(); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && phoneOverlay.classList.contains("open")) closePhoneAccess();
+  });
+
+  // Internet URL modal (dedicated for the Cloudflare tunnel)
+  const tunnelOverlay  = $("tunnel-overlay");
+  const tunnelCopyBtn  = $("tunnel-copy-btn");
+  async function openTunnel() {
+    tunnelOverlay.classList.add("open");
+    const urlEl    = $("tunnel-url-display");
+    const qrEl     = $("qr-tunnel-big");
+    const statusEl = $("tunnel-status-big");
+    urlEl.textContent = "Loading…";
+    qrEl.style.display = "none";
+    tunnelCopyBtn.style.display = "none";
+    statusEl.textContent = "Fetching tunnel info…";
+    statusEl.style.color = "var(--text-dim)";
+    try {
+      const r = await fetch("/api/network");
+      const n = await r.json();
+      if (n.qr_tunnel && n.tunnel_url) {
+        urlEl.textContent = n.tunnel_url;
+        qrEl.src = n.qr_tunnel;
+        qrEl.style.display = "block";
+        tunnelCopyBtn.style.display = "inline-block";
+        statusEl.textContent = n.tunnel
+          ? "✓ Tunnel ACTIVE — anyone with this URL can open the dashboard now"
+          : "URL found but tunnel service is not currently active";
+        statusEl.style.color = n.tunnel ? "var(--green)" : "var(--orange)";
+      } else if (n.tunnel) {
+        urlEl.textContent = "starting…";
+        statusEl.textContent = "Tunnel service running but URL not assigned yet — wait 5–10 seconds then close and reopen this window.";
+        statusEl.style.color = "var(--orange)";
+      } else {
+        urlEl.textContent = "Tunnel not running";
+        statusEl.innerHTML = "The tunnel service is not enabled. Ask Herson to run: <code>bash deploy/install-tunnel.sh</code>";
+        statusEl.style.color = "var(--text-dim)";
+      }
+    } catch (err) {
+      urlEl.textContent = "Error";
+      statusEl.textContent = "Failed to fetch tunnel info — is the backend running?";
+      statusEl.style.color = "var(--red)";
+    }
+  }
+  function closeTunnel() { tunnelOverlay.classList.remove("open"); }
+  $("tunnel-btn").addEventListener("click",       openTunnel);
+  $("tunnel-close-btn").addEventListener("click", closeTunnel);
+  tunnelOverlay.addEventListener("click", (e) => { if (e.target === tunnelOverlay) closeTunnel(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && tunnelOverlay.classList.contains("open")) closeTunnel();
+  });
+  tunnelCopyBtn.addEventListener("click", () => {
+    const url = $("tunnel-url-display").textContent.trim();
+    if (url && url.startsWith("http")) {
+      navigator.clipboard.writeText(url).then(() => {
+        tunnelCopyBtn.textContent = "✓ Copied!";
+        setTimeout(() => { tunnelCopyBtn.textContent = "📋 Copy URL"; }, 1500);
+      }).catch(() => {
+        tunnelCopyBtn.textContent = "Copy failed";
+        setTimeout(() => { tunnelCopyBtn.textContent = "📋 Copy URL"; }, 1500);
+      });
+    }
   });
 
   // Camera fullscreen overlay
