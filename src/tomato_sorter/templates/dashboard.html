@@ -718,6 +718,7 @@
       <h2>📱 Phone Access</h2>
       <div class="sub">Scan with any phone camera to connect.</div>
 
+      <div style="margin-bottom:8px;color:var(--text);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Same Location (LAN / Hotspot)</div>
       <div class="phone-cards">
         <div class="phone-card">
           <h3>① Join the WiFi</h3>
@@ -736,6 +737,17 @@
       </div>
 
       <div class="phone-hotspot-status" id="phone-hotspot-status">Hotspot: checking…</div>
+
+      <div style="margin:24px 0 8px 0;color:var(--text);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Anywhere on the Internet (Public Tunnel)</div>
+      <div class="phone-cards" style="grid-template-columns:1fr;">
+        <div class="phone-card" id="tunnel-card">
+          <h3>🌐 Public Dashboard URL</h3>
+          <div class="hint">Cloudflare quick tunnel — works from any internet connection, no need to join the Pi's WiFi.</div>
+          <img id="qr-tunnel" alt="Public tunnel QR code" style="display:none;" />
+          <div class="kv" style="margin-top:14px;font-size:13px;"><span>URL:</span> <b id="phone-tunnel-url" style="word-break:break-all;">—</b></div>
+          <div id="tunnel-msg" class="hint" style="margin-top:14px;color:var(--text-dim);">Loading tunnel status…</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1006,6 +1018,27 @@
       $("phone-pass").textContent     = n.hotspot_password || "tomato123";
       $("phone-url").textContent      = n.best_url || "—";
       $("phone-hostname").textContent = n.hostname ? (n.hostname + ".local") : "—";
+
+      // Tunnel (public URL) card
+      const qrTunnel = $("qr-tunnel");
+      const tunnelMsg = $("tunnel-msg");
+      if (n.qr_tunnel && n.tunnel_url) {
+        qrTunnel.src = n.qr_tunnel;
+        qrTunnel.style.display = "block";
+        $("phone-tunnel-url").textContent = n.tunnel_url;
+        tunnelMsg.textContent = n.tunnel ? "✓ Tunnel ACTIVE — anyone can open this URL right now" : "URL found but service not active";
+        tunnelMsg.style.color = n.tunnel ? "var(--green)" : "var(--orange)";
+      } else if (n.tunnel) {
+        qrTunnel.style.display = "none";
+        $("phone-tunnel-url").textContent = "starting…";
+        tunnelMsg.textContent = "Tunnel service running but URL not assigned yet — try again in 5–10 seconds.";
+        tunnelMsg.style.color = "var(--orange)";
+      } else {
+        qrTunnel.style.display = "none";
+        $("phone-tunnel-url").textContent = "—";
+        tunnelMsg.innerHTML = "Tunnel service not running.<br><span style='font-size:11px;color:var(--text-dim);'>Enable with:</span> <code>sudo systemctl enable --now tomato-tunnel</code>";
+        tunnelMsg.style.color = "var(--text-dim)";
+      }
       const statusEl = $("phone-hotspot-status");
       if (n.hotspot) {
         statusEl.textContent = `✓ Hotspot ACTIVE — phones can join "${n.ssid || n.hotspot_ssid}" now`;

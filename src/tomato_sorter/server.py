@@ -120,17 +120,17 @@ def create_app(detector: Detector, sensors: SensorService,
 
     @app.route("/api/network")
     def api_network():
-        """Network info + QR codes for phone access."""
+        """Network info + QR codes for phone access (LAN, hotspot, internet)."""
         info = network_info.network_summary()
-        # Pick the best URL to send the phone to:
+        # Pick the best LAN URL to send the phone to:
         #   - Hostname (raspberrypi.local) if mDNS works (more portable)
         #   - Fall back to IP otherwise
         best_url = info["urls"].get("hostname") or info["urls"].get("ip") or ""
 
         info["qr_dashboard"] = network_info.make_qr_png_base64(best_url) if best_url else None
-        # Always offer a WiFi-join QR for the hotspot — phones can scan it
-        # to auto-connect even if the hotspot isn't running yet (no harm).
-        info["qr_wifi"]   = network_info.make_wifi_join_qr(HOTSPOT_SSID, HOTSPOT_PASSWORD)
+        info["qr_wifi"]      = network_info.make_wifi_join_qr(HOTSPOT_SSID, HOTSPOT_PASSWORD)
+        # Public tunnel URL (Cloudflare quick tunnel) — accessible from anywhere
+        info["qr_tunnel"]    = network_info.make_qr_png_base64(info["tunnel_url"]) if info.get("tunnel_url") else None
         info["hotspot_ssid"]     = HOTSPOT_SSID
         info["hotspot_password"] = HOTSPOT_PASSWORD
         info["best_url"]         = best_url

@@ -1,0 +1,16 @@
+[Unit]
+Description=Tomato Sorter — Cloudflare quick tunnel (public dashboard URL)
+After=network-online.target tomato-sorter.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bacadasa
+Group=bacadasa
+WorkingDirectory=/home/bacadasa/tomato-sorter
+ExecStart=/home/bacadasa/tomato-sorter/deploy/tunnel-runner.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

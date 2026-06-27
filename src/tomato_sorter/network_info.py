@@ -2,13 +2,23 @@
 and generate QR codes for phone access to the dashboard."""
 import base64
 import io
+import re
 import socket
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 import qrcode
 
 DASHBOARD_PORT = 5000
+TUNNEL_LOG     = Path("/home/bacadasa/tomato-sorter/data/logs/tunnel.log")
+
+# Pattern that matches any *.trycloudflare.com URL.
+# cloudflared prints lines like:
+#   2026-06-27T12:54:00Z INF +-----+
+#   2026-06-27T12:54:00Z INF | Your quick Tunnel has been created! Visit it at:
+#   2026-06-27T12:54:00Z INF | https://random-words-here.trycloudflare.com
+_TUNNEL_RE = re.compile(r"https://[a-z0-9\-]+\.trycloudflare\.com", re.IGNORECASE)
 
 
 def get_lan_ip() -> Optional[str]:
@@ -86,6 +96,37 @@ def get_hotspot_ssid() -> Optional[str]:
     return None
 
 
+def get_tunnel_url() -> Optional[str]:
+    """Read the latest *.trycloudflare.com URL from the tunnel log.
+
+    The tunnel-runner.sh script truncates the log on start, so the
+    first URL we find is the current one. Returns None if no URL
+    yet (tunnel still starting) or tunnel service isn't running.
+    """
+    try:
+        if not TUNNEL_LOG.exists():
+            return None
+        # Bounded read — the log can grow, we only need the early lines.
+        with TUNNEL_LOG.open("r", errors="ignore") as f:
+            text = f.read(20000)
+        matches = _TUNNEL_RE.findall(text)
+        return matches[0] if matches else None
+    except Exception:
+        return None
+
+
+def is_tunnel_active() -> bool:
+    """True if the tomato-tunnel systemd service is running."""
+    try:
+        out = subprocess.check_output(
+            ["systemctl", "is-active", "tomato-tunnel.service"],
+            timeout=2, stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        return out == "active"
+    except Exception:
+        return False
+
+
 def network_summary() -> dict:
     """Single dict consumed by the dashboard for the Phone Access panel."""
     ip       = get_lan_ip()
@@ -99,12 +140,19 @@ def network_summary() -> dict:
     if hostname:
         urls["hostname"] = f"http://{hostname}.local:{DASHBOARD_PORT}"
 
+    tunnel_url    = get_tunnel_url()
+    tunnel_active = is_tunnel_active()
+    if tunnel_url:
+        urls["tunnel"] = tunnel_url
+
     return {
-        "ip":       ip,
-        "hostname": hostname,
-        "hotspot":  hotspot,
-        "ssid":     ssid,
-        "urls":     urls,
+        "ip":            ip,
+        "hostname":      hostname,
+        "hotspot":       hotspot,
+        "ssid":          ssid,
+        "tunnel":        tunnel_active,
+        "tunnel_url":    tunnel_url,
+        "urls":          urls,
     }
 
 
